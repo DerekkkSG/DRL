@@ -9,10 +9,10 @@ Proyecto personal liderado por Derek Salcido centrado en la creación de librer�
 
 DRL incluye por el momento una sola librería: **quantum.h**, con la visión de agregar muchas más en un futuro. Sus características principales son tres estructuras distintas:
 
-* **drk::ternary_quantum<T>**: Almacena un valor cualquiera junto a un estado lógico ternario: false_v, maybe_v y true_v. Su estado logico por defecto es true_v.
-* **drk::linked_quantum<Own, Linked>**: Almacena dos valores distintos: uno propio y otro compartido entre distintos objetos del mismo tipo.
-* **drk::uncertain_quantum<T>**: Almacena varios valores, los cuales se pueden seleccionar aleatoriamente mediante una distribución uniforme o probabilidades ponderadas.
-    - **drk::strict_uncertain<T>**: Es un **drk::uncertain_quantum<T>**, pero con la diferencia de que éste no te permite tener un vector de valores de distinto tamaño al de probabilidades ponderadas, soltando una excepción de tipo std::range_error si se incumple esta norma.
+* `drk::ternary_quantum<T>`: Almacena un valor cualquiera junto a un estado lógico ternario: false_v, maybe_v y true_v. Su estado logico por defecto es true_v.
+* `drk::linked_quantum<Own, Linked>`: Almacena dos valores distintos: uno propio y otro compartido entre distintos objetos del mismo tipo.
+* `drk::uncertain_quantum<T>`: Almacena varios valores, los cuales se pueden seleccionar aleatoriamente mediante una distribución uniforme o probabilidades ponderadas.
+    - `drk::strict_uncertain<T>`: Es un **drk::uncertain_quantum**, pero con la diferencia de que éste no te permite tener un vector de valores de distinto tamaño al de probabilidades ponderadas, soltando una excepción de tipo std::range_error si se incumple esta norma.
 
 Además, cuenta con funciones especializadas para crear cada estructura, así como los tres estados lógicos distintos y una función dedicada para obtenerlos de forma aleatoria. Todas éstas y más se encuentran dentro del espacio de nombres **drk::quantum**
 

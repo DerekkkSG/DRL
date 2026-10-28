@@ -54,17 +54,41 @@ namespace impl{
     }
 
     inline size_t _get_random_uniform_int(const size_t& _top_value){
-        std::uniform_int_distribution<int> _get_rand(0, static_cast<int>(_top_value));
+        std::uniform_int_distribution<unsigned int> _get_rand(0, static_cast<unsigned int>(_top_value));
         return static_cast<size_t>(_get_rand(_get_device_impl()));
     }
 
-    inline size_t _get_random_poundered_int(const std::vector<int>& _poundered_values){
+    inline size_t _get_random_poundered_int(const std::vector<unsigned int>& _poundered_values){
         if(_poundered_values.empty()) return 0;
-        std::discrete_distribution<int> _get_poundered(_poundered_values.begin(), _poundered_values.end());
+        std::discrete_distribution<unsigned int> _get_poundered(_poundered_values.begin(), _poundered_values.end());
         return static_cast<size_t>(_get_poundered(_get_device_impl()));
     }
 
 }
+
+/* CONCEPTS */
+template<typename T>
+concept is_uncertain = requires(T obj){
+    { obj.observe() };
+    { obj.make_uniform() };
+    { obj.begin() };
+    { obj.end() };
+};
+
+template<typename T>
+concept is_linked = requires(T obj){
+    { obj.is_linked() };
+    { obj.reset() };
+    { obj.get_linked_v() };
+    { obj.get_own_v() };
+};
+
+template<typename T>
+concept is_ternary = requires(T obj){
+    { obj.get_value() };
+    { obj.get_state() };
+    { obj.is_defined() };
+};
 
 /// @brief A datatype that can store two distinct variables: a logical quantum_state (_::true_v, _::maybe_v, _::false_v) and a T value.
 /// @brief You can change each one when needed; default state is _::true_v.
@@ -132,7 +156,7 @@ public:
         return (value == new_value.get_value()) && (m_state == new_value.get_state());
     }
 
-    [[nodiscard]] value_type operator+(const quantum_t& new_value) requires std::is_arithmetic_v<value_type> {
+    [[nodiscard]] value_type operator+(const quantum_t& new_value) const requires std::is_arithmetic_v<value_type> {
         return value + new_value.value;
     }
 
@@ -141,7 +165,7 @@ public:
             return *this;
     }
 
-    [[nodiscard]] value_type operator-(const quantum_t& new_value) requires std::is_arithmetic_v<value_type> {
+    [[nodiscard]] value_type operator-(const quantum_t& new_value) const requires std::is_arithmetic_v<value_type> {
         return value - new_value.value;
     }
 
@@ -150,7 +174,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] value_type operator*(const quantum_t& new_value) requires std::is_arithmetic_v<value_type> {
+    [[nodiscard]] value_type operator*(const quantum_t& new_value) const requires std::is_arithmetic_v<value_type> {
         return value * new_value.value;
     }
 
@@ -159,7 +183,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] value_type operator/(const quantum_t& new_value) requires std::is_arithmetic_v<value_type> {
+    [[nodiscard]] value_type operator/(const quantum_t& new_value) const requires std::is_arithmetic_v<value_type> {
         return value / new_value.value;
     }
 
@@ -334,7 +358,7 @@ private:
     };
 
     std::vector<value_type> m_storage;
-    std::vector<int> m_poundered_probability;
+    std::vector<unsigned int> m_poundered_probability;
     kind_of_dist choosen_rand;
 
     void fix_vectors(){
@@ -352,7 +376,7 @@ public:
     explicit uncertain_quantum(const std::vector<value_type>& _storage) 
     : m_storage(std::move(_storage)), m_poundered_probability(1, 0), choosen_rand(kind_of_dist::uniform) {}
 
-    uncertain_quantum(const std::vector<value_type>& _storage, const std::vector<int>& _poundered)
+    uncertain_quantum(const std::vector<value_type>& _storage, const std::vector<unsigned int>& _poundered)
     : m_storage(std::move(_storage)), m_poundered_probability(std::move(_poundered)), choosen_rand(kind_of_dist::pounded) {
         Strictness::Fix(m_storage, m_poundered_probability);
     }
@@ -369,7 +393,7 @@ public:
         choosen_rand{std::move(other.choosen_rand)}
     {
         other.m_storage = std::vector<value_type>(1, value_type{});
-        other.m_poundered_probability = std::vector<int>(1, 0);
+        other.m_poundered_probability = std::vector<unsigned int>(1, 0);
         other.choosen_rand = kind_of_dist::uniform;
         
     }
@@ -379,7 +403,7 @@ public:
 
     void make_uniform() noexcept { choosen_rand = kind_of_dist::uniform; }
 
-    void make_pounded(const std::vector<int>& new_poundered){
+    void make_pounded(const std::vector<unsigned int>& new_poundered){
         choosen_rand = kind_of_dist::pounded;
         m_poundered_probability = new_poundered;
         Strictness::Fix(m_storage, m_poundered_probability);
@@ -418,37 +442,42 @@ public:
 template<typename T>
 using strict_uncertain = uncertain_quantum<T, quantum::strict_uncertain_trait>;
 
+template<typename T>
+auto auto_observe(T quantum) requires is_uncertain<T> {
+    return quantum.observe();
+}
+
+template<typename T>
+[[nodiscard]] ternary_quantum<T> make_ternary(
+    T _value = T{},
+    quantum_state _state = quantum_state::true_v)
+{
+    return ternary_quantum<T>(_value, _state);
+}
+
+template<typename Own, typename Linked>
+[[nodiscard]] linked_quantum<Own, Linked> make_linked(
+    Own _own_value = Own{},
+    Linked _shared_value = Linked{})
+{
+    return linked_quantum<Own, Linked>(_own_value, _shared_value);
+}
+
+template<typename T>
+[[nodiscard]] uncertain_quantum<T> make_uncertain(
+    const std::vector<T>& _storage = std::vector<T>(1, T{}),
+    const std::vector<unsigned int>& _poundered = std::vector<unsigned int>(1, 0))
+{
+    return uncertain_quantum<T>(_storage, _poundered);
+}
+
 /// @brief Namespace used to store all specialized methods
 namespace quantum{
 
     /// @brief Method used to get a random quantum_state.
     /// @return A random quantum_state (_::false_v, _::maybe_v, _::true_v).
-    [[nodiscard]] quantum_state get_random_state(){
+    [[nodiscard]] inline quantum_state get_random_state(){
         return static_cast<quantum_state>(impl::_get_random_uniform_int(2));
-    }
-
-    template<typename T>
-    [[nodiscard]] ternary_quantum<T> make_ternary(
-        T _value = T{},
-        quantum_state _state = quantum_state::true_v)
-    {
-        return ternary_quantum<T>(_value, _state);
-    }
-
-    template<typename Own, typename Linked>
-    [[nodiscard]] linked_quantum<Own, Linked> make_linked(
-        Own _own_value = Own{},
-        Linked _shared_value = Linked{})
-    {
-        return linked_quantum<Own, Linked>(_own_value, _shared_value);
-    }
-
-    template<typename T>
-    [[nodiscard]] uncertain_quantum<T> make_uncertain(
-        const std::vector<T>& _storage = std::vector<T>(1, T{}),
-        const std::vector<int>& _poundered = std::vector<int>(1, 0))
-    {
-        return uncertain_quantum<T>(_storage, _poundered);
     }
 
 }
@@ -466,13 +495,13 @@ inline std::ostream& operator<<(std::ostream& ostream, drk::quantum_state state)
 }
 
 template<typename Own, typename Linked>
-inline std::ostream& operator<<(std::ostream& ostream, drk::linked_quantum<Own, Linked> quantum){
+std::ostream& operator<<(std::ostream& ostream, drk::linked_quantum<Own, Linked> quantum){
     ostream << "{" << quantum.get_own_v() << ", " << quantum.get_linked_v() << "}";
     return ostream;
 }
 
 template<typename T>
-inline std::ostream& operator<<(std::ostream& ostream, drk::ternary_quantum<T> quantum){
+std::ostream& operator<<(std::ostream& ostream, drk::ternary_quantum<T> quantum){
     ostream << "{" << quantum.get_value() << ", " << quantum.get_state() << "}";
     return ostream;
 }
