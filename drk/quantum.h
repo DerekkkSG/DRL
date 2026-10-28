@@ -1,5 +1,5 @@
-#ifndef DRK_RESTRICTED_QUANTUM_H
-#define DRK_RESTRICTED_QUANTUM_H
+#ifndef DRL_QUANTUM_H
+#define DRL_QUANTUM_H
 
 #include <iostream>
 #include <type_traits>
@@ -9,6 +9,7 @@
 #include <memory>
 #include <concepts>
 #include <compare>
+#include <stdexcept>
 
 /*
 ------------------------------------------------------------------------------------------------------------------------
@@ -19,7 +20,7 @@ If you get to use the library, please don't trust your life on it; it's not the 
 ------------------------------------------------------------------------------------------------------------------------
 */
 
-namespace drk {
+namespace drk { //Start of the library
 
 /// @brief A set of discrete states to express three distinct logical values
 enum class quantum_state : int {
