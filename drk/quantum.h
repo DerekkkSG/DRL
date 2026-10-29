@@ -93,7 +93,7 @@ concept is_ternary = requires(T obj){
 /// @brief A datatype that can store two distinct variables: a logical quantum_state (_::true_v, _::maybe_v, _::false_v) and a T value.
 /// @brief You can change each one when needed; default state is _::true_v.
 /// @tparam T Used to define any kind of datatype its value can own.
-template<typename T>
+template<typename T> requires std::copyable<T>
 class ternary_quantum {
 public:
     using value_type = T;
@@ -101,13 +101,17 @@ public:
     
 private:
     quantum_state m_state;
+public:
     value_type value;
 
-public:
-
     ternary_quantum() : m_state{quantum_state::true_v}, value(value_type{}) {}
-    ternary_quantum(value_type new_value) : m_state{quantum_state::true_v}, value{new_value} {}
-    ternary_quantum(value_type new_value, quantum_state new_state) : m_state{new_state}, value{new_value} {}
+
+    ternary_quantum(const value_type& new_value) 
+    : m_state{quantum_state::true_v}, value{new_value} {}
+
+    ternary_quantum(const value_type& new_value, const quantum_state& new_state) 
+    : m_state{new_state}, value{new_value} {}
+
     ternary_quantum(const quantum_t& new_ternary) : m_state{new_ternary.get_state()}, value{new_ternary.get_value()} {};
     ternary_quantum(quantum_t&& new_ternary) noexcept {
         if(this != &new_ternary){
@@ -118,22 +122,23 @@ public:
             new_ternary.set_value(value_type{});
         }
     };
+
     ~ternary_quantum() = default;
 
     /* MAIN METHODS */
     void change_state(quantum_state new_state) noexcept { m_state = new_state; }
 
-    void set_value(value_type new_value) noexcept { value = new_value; }
+    void set_value(value_type new_value) { value = new_value; }
 
     [[nodiscard]] constexpr quantum_state get_state() const noexcept { return m_state; }
 
-    [[nodiscard]] constexpr value_type get_value() const noexcept { return value; }
+    [[nodiscard]] constexpr value_type get_value() const noexcept requires std::is_arithmetic_v<value_type> { return value; }
 
     [[nodiscard]] constexpr bool is_defined() const noexcept { return m_state != quantum_state::maybe_v; }
 
     /* OPERATORS */
     quantum_t& operator=(const quantum_t& new_value){
-        value = new_value.get_value();
+        value = new_value.value;
         m_state = new_value.get_state();
         return *this;
     }
@@ -141,7 +146,7 @@ public:
     void operator=(quantum_t&& new_value) noexcept {
         if(this != &new_value){
             m_state = std::move(new_value.get_state());
-            value = std::move(new_value.get_value());
+            value = std::move(new_value.value);
 
             new_value.change_state(quantum_state::true_v);
             new_value.set_value(value_type{});
@@ -152,8 +157,12 @@ public:
         return (value <=> other_quantum.get_value());
     }
 
-    [[nodiscard]] bool operator==(const quantum_t& new_value){
+    [[nodiscard]] bool operator==(const quantum_t& new_value) const {
         return (value == new_value.get_value()) && (m_state == new_value.get_state());
+    }
+
+    [[nodiscard]] bool operator!=(const quantum_t& new_value) const {
+        return (value != new_value.get_value()) && (m_state != new_value.get_state());
     }
 
     [[nodiscard]] value_type operator+(const quantum_t& new_value) const requires std::is_arithmetic_v<value_type> {
