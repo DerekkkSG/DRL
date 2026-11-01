@@ -6,6 +6,8 @@
 
 using namespace std;
 
+#define DEBUG_DRL
+#ifndef DEBUG_DRL
 int main(){
 
     /* Creando un ternary_quantum por defecto */
@@ -101,3 +103,4 @@ int main(){
 
     return 0;
 }
+#endif
