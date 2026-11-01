@@ -9,7 +9,7 @@
 #include <memory>
 #include <concepts>
 #include <compare>
-#include <stdexcept>
+#include <exception>
 
 /*
 ------------------------------------------------------------------------------------------------------------------------
@@ -90,6 +90,14 @@ concept is_ternary = requires(T obj){
     { obj.is_defined() };
 };
 
+//EXEPTIONS
+
+/*
+PRELIMINARY CONCEPT; Still in testing stage
+template<typename T>
+concept is_observable = std::is_arithmetic_v<T> || std::is_pointer_v<T> || std::is_enum_v<T>;
+*/
+
 /// @brief A datatype that can store two distinct variables: a logical quantum_state (_::true_v, _::maybe_v, _::false_v) and a T value.
 /// @brief You can change each one when needed; default state is _::true_v.
 /// @tparam T Used to define any kind of datatype its value can own.
@@ -98,13 +106,12 @@ class ternary_quantum {
 public:
     using value_type = T;
     using quantum_t  = ternary_quantum<value_type>;
-    
 private:
     quantum_state m_state;
 public:
     value_type value;
 
-    ternary_quantum() : m_state{quantum_state::true_v}, value(value_type{}) {}
+    ternary_quantum() : m_state{quantum_state::true_v}, value{value_type{}} {}
 
     ternary_quantum(const value_type& new_value) 
     : m_state{quantum_state::true_v}, value{new_value} {}
@@ -112,16 +119,16 @@ public:
     ternary_quantum(const value_type& new_value, const quantum_state& new_state) 
     : m_state{new_state}, value{new_value} {}
 
-    ternary_quantum(const quantum_t& new_ternary) : m_state{new_ternary.get_state()}, value{new_ternary.get_value()} {};
-    ternary_quantum(quantum_t&& new_ternary) noexcept {
-        if(this != &new_ternary){
-            m_state = std::move(new_ternary.get_state());
-            value = std::move(new_ternary.get_value());
+    ternary_quantum(const quantum_t& new_ternary) 
+    : m_state{new_ternary.get_state()}, value{new_ternary.get_value()} {}
 
-            new_ternary.change_state(quantum_state::true_v);
-            new_ternary.set_value(value_type{});
-        }
-    };
+    ternary_quantum(quantum_t&& new_ternary) noexcept {
+        m_state = std::move(new_ternary.get_state());
+        value = std::move(new_ternary.get_value());
+
+        new_ternary.change_state(quantum_state::true_v);
+        new_ternary.set_value(value_type{});
+    }
 
     ~ternary_quantum() = default;
 
@@ -139,13 +146,13 @@ public:
     /* OPERATORS */
     quantum_t& operator=(const quantum_t& new_value){
         value = new_value.value;
-        m_state = new_value.get_state();
+        m_state = new_value.m_state;
         return *this;
     }
 
     void operator=(quantum_t&& new_value) noexcept {
         if(this != &new_value){
-            m_state = std::move(new_value.get_state());
+            m_state = std::move(new_value.m_state);
             value = std::move(new_value.value);
 
             new_value.change_state(quantum_state::true_v);
@@ -154,15 +161,15 @@ public:
     }
 
     [[nodiscard]] auto operator<=>(const quantum_t& other_quantum) const {
-        return (value <=> other_quantum.get_value());
+        return (value <=> other_quantum.value);
     }
 
     [[nodiscard]] bool operator==(const quantum_t& new_value) const {
-        return (value == new_value.get_value()) && (m_state == new_value.get_state());
+        return (value == new_value.value) && (m_state == new_value.m_state);
     }
 
     [[nodiscard]] bool operator!=(const quantum_t& new_value) const {
-        return (value != new_value.get_value()) && (m_state != new_value.get_state());
+        return (value != new_value.value) && (m_state != new_value.m_state);
     }
 
     [[nodiscard]] value_type operator+(const quantum_t& new_value) const requires std::is_arithmetic_v<value_type> {
@@ -203,6 +210,9 @@ public:
     
 };
 
+template<typename T, typename Own, typename Quantum>
+concept is_linked_operable = std::is_same_v<T, Own> || std::is_same_v<T, Quantum>;
+
 /* One shared static variable; one data independant of all of them stores by they're ID */
 template<typename Own, typename Linked>
 class linked_quantum {
@@ -210,65 +220,81 @@ public:
     using value_type  = Own;
     using linked_type = Linked;
     using quantum_t   = linked_quantum<value_type, linked_type>;
-    
+    using quantum_ptr = quantum_t*;
 private:
-    std::shared_ptr<linked_type> shared_value;
+    linked_type shared_value;
     value_type owned_value;
+    quantum_ptr shared_obj;
+
+    quantum_ptr get_other_shared(quantum_t& other_quantum){
+        if(other_quantum.shared_obj != nullptr) return get_other_shared(*(other_quantum.shared_obj));
+        else return &other_quantum;
+    }
 
 public:
 
-    linked_quantum() : shared_value{nullptr} {}
-    explicit linked_quantum(value_type own_v) : shared_value{nullptr}, owned_value{own_v} {}
-    linked_quantum(value_type own_v, linked_type linked_v){
-        owned_value = own_v;
-        shared_value = std::make_shared<linked_type>(linked_v);        
-    }
+    linked_quantum() : shared_obj{nullptr} {}
 
-    linked_quantum(quantum_t& other_quantum){
-        owned_value = other_quantum.owned_value;
-        shared_value = other_quantum.shared_value;
-    }
+    explicit linked_quantum(const value_type& own_v) 
+    : owned_value{own_v}, shared_obj{nullptr} {}
+
+    linked_quantum(const value_type& own_v, const linked_type& linked_v) 
+    : shared_value{linked_v}, owned_value{own_v}, shared_obj{nullptr} {}
+
+    linked_quantum(quantum_t& other_quantum)
+    : shared_value{other_quantum.shared_value}, owned_value{other_quantum.owned_value},
+      shared_obj{other_quantum.shared_obj} {}
 
     linked_quantum(quantum_t&& other_quantum) noexcept
-      : owned_value{std::move(other_quantum.owned_value)},
-        shared_value{std::move(other_quantum.shared_value)} 
+    : owned_value{std::move(other_quantum.owned_value)}, shared_value{std::move(other_quantum.shared_value)},
+      shared_obj{std::move(other_quantum.shared_obj)} 
     { 
-        other_quantum.shared_value = nullptr; 
+        other_quantum.shared_value = linked_type{}; 
         other_quantum.owned_value = value_type{};
+        other_quantum.shared_obj = nullptr;
     }
 
+    //The deletion of this constructor was made to prevent unwanted behaviour with the class thanks
+    //to the const keyword and unchangeable values
     linked_quantum(const quantum_t& other_quantum) = delete;
+
+    ~linked_quantum() = default;
 
     /* MAIN METHODS */
     void link(quantum_t& other_quantum) {
-        shared_value = other_quantum.shared_value;
-        std::cout << "linked!" << std::endl;
+        shared_obj = get_other_shared(other_quantum);
+        shared_value = linked_type{};
     }
 
     void reset(){
-        shared_value = nullptr;
-        std::cout << "no linked value stored!" << std::endl;
+        shared_obj = nullptr;
+        shared_value = linked_type{};
     }
 
     [[nodiscard]] constexpr linked_type get_linked_v() const { 
-        if(shared_value != nullptr) return *shared_value; 
-        return linked_type{};
+        if(shared_obj != nullptr) return shared_obj->get_linked_v(); 
+        else return shared_value;
     }
 
     [[nodiscard]] constexpr value_type get_own_v() const noexcept { return owned_value; }
 
-    void set_own_v(value_type new_value) noexcept { owned_value = new_value; }
+    void set_own_v(value_type new_value) { owned_value = new_value; }
+
+    [[nodiscard]] quantum_ptr get_linked_ptr() const { return shared_obj; }
 
     void set_linked_v(linked_type new_linked_v) { 
-        if(shared_value != nullptr) *shared_value = new_linked_v; 
+        if(shared_obj != nullptr){
+            shared_obj->set_linked_v(new_linked_v);
+        } else shared_value = new_linked_v;
     }
 
-    [[nodiscard]] constexpr bool is_linked() const noexcept { return shared_value != nullptr; }
+    [[nodiscard]] constexpr bool is_linked() const noexcept { return shared_obj != nullptr; }
 
     /* OPERATORS */
     quantum_t& operator=(quantum_t& other_quantum){
         owned_value = other_quantum.owned_value;
         shared_value = other_quantum.shared_value;
+        shared_obj = other_quantum.shared_obj;
         return *this;
     }
 
@@ -277,10 +303,17 @@ public:
         {
             owned_value = other_quantum.owned_value;
             shared_value = other_quantum.shared_value;
+            shared_obj = other_quantum.shared_obj;
 
-            other_quantum.shared_value = nullptr; 
+            other_quantum.shared_value = linked_type{}; 
             other_quantum.owned_value = value_type{};
+            other_quantum.shared_obj = nullptr;
         }
+    }
+
+    quantum_t& operator=(const value_type& new_value){
+        owned_value = new_value;
+        return *this;
     }
 
     [[nodiscard]] auto operator<=>(const quantum_t& other_quantum) const {
@@ -288,6 +321,10 @@ public:
     }
 
     [[nodiscard]] bool operator==(const quantum_t& other_quantum) const {
+        return (owned_value == other_quantum.owned_value);
+    }
+
+    [[nodiscard]] bool operator!=(const quantum_t& other_quantum) const {
         return (owned_value == other_quantum.owned_value);
     }
     
@@ -329,12 +366,19 @@ public:
 };
 
 namespace quantum {
+class [[nodiscard]] incoherent_size : public std::exception {
+public:
+    [[nodiscard]] const char* what() const noexcept override {
+        return "Incoherent vector size between storage and pounded probability inside drk::uncertain_quantum";
+    }
+};
+
 class strict_uncertain_trait {
 public:
     template<typename V, typename U>
     static void Fix(const std::vector<V>& _values, const std::vector<U>& _pounded){
         if(_values.size() != _pounded.size())
-        throw std::range_error("Incoherent vector size between storage and pounded probability inside drk::uncertain_quantum");
+        throw incoherent_size();
     }
 };
 
@@ -359,7 +403,6 @@ public:
     using iterator       = typename std::vector<value_type>::iterator;
     using const_iterator = typename std::vector<value_type>::const_iterator;
     using quantum_t      = uncertain_quantum<value_type, Strictness>;
-
 private:
     enum class kind_of_dist : int {
         uniform = 0,
@@ -369,14 +412,6 @@ private:
     std::vector<value_type> m_storage;
     std::vector<unsigned int> m_poundered_probability;
     kind_of_dist choosen_rand;
-
-    void fix_vectors(){
-        while(m_storage.size() != m_poundered_probability.size()){
-            if(m_storage.size() < m_poundered_probability.size()){
-                m_poundered_probability.pop_back();
-            } else m_poundered_probability.push_back(0);
-        }
-    }
 
 public:
 
@@ -407,8 +442,14 @@ public:
         
     }
 
+    ~uncertain_quantum() = default;
+
     /* MAIN METHODS */
-    void change_values(const std::vector<value_type>& new_storage) { m_storage = new_storage; }
+    void change_values(const quantum_t& new_storage) { 
+        m_storage = new_storage.m_storage;
+        m_poundered_probability = new_storage.m_poundered_probability;
+        Strictness::Fix(m_storage, m_poundered_probability);
+    }
 
     void make_uniform() noexcept { choosen_rand = kind_of_dist::uniform; }
 
@@ -421,10 +462,8 @@ public:
     [[nodiscard]] value_type observe(){
         if(m_storage.size() < 1) return value_type{};
         if(choosen_rand == kind_of_dist::uniform) {
-            std::cout << "uniform" << std::endl;
             return m_storage[impl::_get_random_uniform_int(m_storage.size()-1)];
         }
-        std::cout << "pounded" << std::endl;
         return m_storage[impl::_get_random_poundered_int(m_poundered_probability)];
     }
 
@@ -438,14 +477,6 @@ public:
     [[nodiscard]] const_iterator end() const { return m_storage.end(); }
 
     /* OPERATORS */
-    [[nodiscard]] auto operator<=>(const quantum_t& other_quantum) const {
-        return (m_storage <=> other_quantum.m_storage);
-    }
-
-    [[nodiscard]] bool operator==(const quantum_t& other_quantum) const {
-        return (m_storage == other_quantum.m_storage);
-    }
-    
 };
 
 template<typename T>
@@ -490,8 +521,6 @@ namespace quantum{
     }
 
 }
-
-/* drk::temporal; mantains the last state used by the object */
 
 inline std::ostream& operator<<(std::ostream& ostream, drk::quantum_state state){
     switch(state){
