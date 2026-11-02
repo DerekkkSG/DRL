@@ -66,7 +66,17 @@ namespace impl{
 
 }
 
-/* CONCEPTS */
+// FORWARD DECLARATION
+template<typename T>  requires std::copyable<T>
+class ternary_quantum;
+
+template<typename Own, typename Linked>
+class linked_quantum;
+
+template<typename T, class Strictness>
+class uncertain_quantum;
+
+// CONCEPTS
 template<typename T>
 concept is_uncertain = requires(T obj){
     { obj.observe() };
@@ -90,13 +100,52 @@ concept is_ternary = requires(T obj){
     { obj.is_defined() };
 };
 
-//EXEPTIONS
+template<typename T, typename Own, typename Quantum>
+concept is_linked_operable = std::is_same_v<T, Own> || std::is_same_v<T, Quantum>;
 
 /*
 PRELIMINARY CONCEPT; Still in testing stage
 template<typename T>
 concept is_observable = std::is_arithmetic_v<T> || std::is_pointer_v<T> || std::is_enum_v<T>;
 */
+
+// DRK::QUANTUM NAMESPACE
+namespace quantum {
+// EXEPTIONS
+class [[nodiscard]] incoherent_size : public std::exception {
+public:
+    [[nodiscard]] const char* what() const noexcept override {
+        return "Incoherent vector size between storage and pounded probability inside drk::uncertain_quantum";
+    }
+};
+
+class strict_uncertain_trait {
+public:
+    template<typename V, typename U>
+    static void Fix(const std::vector<V>& _values, const std::vector<U>& _pounded){
+        if(_values.size() != _pounded.size())
+        throw incoherent_size();
+    }
+};
+
+class free_uncertain_trait {
+public:
+    template<typename V, typename U>
+    static void Fix(const std::vector<V>& _values, std::vector<U>& _pounded){
+        while(_values.size() != _pounded.size()){
+            if(_values.size() < _pounded.size()){
+                _pounded.pop_back();
+            } else _pounded.push_back(0);
+        }
+    }
+};
+
+/// @brief Method used to get a random quantum_state.
+/// @return A random quantum_state (_::false_v, _::maybe_v, _::true_v).
+[[nodiscard]] inline quantum_state get_random_state(){
+    return static_cast<quantum_state>(impl::_get_random_uniform_int(2));
+}
+} // END OF DRK::QUANTUM NAMESPACE
 
 /// @brief A datatype that can store two distinct variables: a logical quantum_state (_::true_v, _::maybe_v, _::false_v) and a T value.
 /// @brief You can change each one when needed; default state is _::true_v.
@@ -150,7 +199,7 @@ public:
         return *this;
     }
 
-    void operator=(quantum_t&& new_value) noexcept {
+    quantum_t& operator=(quantum_t&& new_value) noexcept {
         if(this != &new_value){
             m_state = std::move(new_value.m_state);
             value = std::move(new_value.value);
@@ -158,6 +207,7 @@ public:
             new_value.change_state(quantum_state::true_v);
             new_value.set_value(value_type{});
         }
+        return *this;
     }
 
     [[nodiscard]] auto operator<=>(const quantum_t& other_quantum) const {
@@ -207,27 +257,32 @@ public:
         value = value / new_value.value;
         return *this;
     }
-    
 };
 
-template<typename T, typename Own, typename Quantum>
-concept is_linked_operable = std::is_same_v<T, Own> || std::is_same_v<T, Quantum>;
-
-/* One shared static variable; one data independant of all of them stores by they're ID */
+// PLEASE don't ask me about how I made this class. I've had enough if it already to also explain how it works.
+// (PD: I didn't think I'd need all this recursion to solve what at first seemed like such a simple problem).
+/// @brief Has an own value and a shared (linked) value with other linked_quantums
 template<typename Own, typename Linked>
 class linked_quantum {
 public:
-    using value_type  = Own;
-    using linked_type = Linked;
-    using quantum_t   = linked_quantum<value_type, linked_type>;
-    using quantum_ptr = quantum_t*;
+    using value_type     = Own;
+    using linked_type    = Linked;
+    using quantum_t      = linked_quantum<value_type, linked_type>;
+    using quantum_ptr    = quantum_t*;
+    using quantum_vector = std::vector<quantum_ptr>;
 private:
     linked_type shared_value;
     value_type owned_value;
     quantum_ptr shared_obj;
+    // This vector is used to relate the main node and the other ones linked to it (this)
+    quantum_vector shared_ref;
 
-    quantum_ptr get_other_shared(quantum_t& other_quantum){
-        if(other_quantum.shared_obj != nullptr) return get_other_shared(*(other_quantum.shared_obj));
+    // Method used to search for the original linked_quantum node storing the shared value
+    quantum_ptr get_other_shared(quantum_t& other_quantum, quantum_ptr this_quantum){
+        // If the shared_ptr of other is this, returns nullptr. If not, we search in the next node.
+        // Then, if the next node is nullptr, we've reached the end and, as a consequence, we return other's memory address (ptr)
+        if (other_quantum.shared_obj == this_quantum) return nullptr;
+        else if(other_quantum.shared_obj != nullptr) return get_other_shared(*(other_quantum.shared_obj), this_quantum);
         else return &other_quantum;
     }
 
@@ -247,28 +302,72 @@ public:
 
     linked_quantum(quantum_t&& other_quantum) noexcept
     : owned_value{std::move(other_quantum.owned_value)}, shared_value{std::move(other_quantum.shared_value)},
-      shared_obj{std::move(other_quantum.shared_obj)} 
+      shared_obj{std::move(other_quantum.shared_obj)}, shared_ref{std::move(other_quantum.shared_ref)}
     { 
+        // Deleting this from the references stored by the other_quantum.shared_ref to avoid this->this
+        for(size_t i=0; i < shared_ref.size(); i++){
+            if(shared_ref[i] == this){
+                shared_ref.erase(shared_ref.begin() + static_cast<long long>(i));
+                break;
+            }
+        }
+
+        // Changing all the references from other_quantum to *this
+        for(quantum_ptr& e : shared_ref) { e->shared_obj = this; }
+
+        // If other_quantum is linked to another quantum, the reference to other_quantum inside the original node
+        // is changed to this
+        if(shared_obj != nullptr){
+            for(quantum_ptr& e : shared_obj->shared_ref){
+                if(e == &other_quantum) { e = this; break; }
+            }
+        }
+
         other_quantum.shared_value = linked_type{}; 
         other_quantum.owned_value = value_type{};
         other_quantum.shared_obj = nullptr;
+        other_quantum.shared_ref.clear();
     }
 
     //The deletion of this constructor was made to prevent unwanted behaviour with the class thanks
     //to the const keyword and unchangeable values
     linked_quantum(const quantum_t& other_quantum) = delete;
 
-    ~linked_quantum() = default;
+    ~linked_quantum() {
+        // Cicle made to avoid dangling pointers inside each linked_quantum linked to *this
+        reset();
+        for(quantum_ptr& e : shared_ref) { e->shared_obj = nullptr; }
+    };
 
-    /* MAIN METHODS */
+    // MAIN METHODS
     void link(quantum_t& other_quantum) {
-        shared_obj = get_other_shared(other_quantum);
+        // Implementing this was like the most insufferable thing ever. Don't even TRY to ask me how I pulled this off
+        if(this == &other_quantum) return;
+        
+        quantum_ptr checking_for_this = get_other_shared(other_quantum, this);
+        // Checking for ciclic relationships between linked_quantums. This kind of relations can't exist.
+        if(checking_for_this == this || checking_for_this == nullptr){ return; }
+
+        // Deleting posible previous relationships with reset() and asigning the new ones
+        reset();
+        shared_obj = &other_quantum;
         shared_value = linked_type{};
+        other_quantum.shared_ref.emplace_back(this);
     }
 
     void reset(){
+        if(shared_obj == nullptr) return;
+
+        // Deleting this from the references stored by the other_quantum.shared_ref to avoid
+        // referencing a non-linked quantum
+        for(size_t i=0; i < shared_obj->shared_ref.size(); i++){
+            if(shared_obj->shared_ref[i] == this){
+                shared_obj->shared_ref.erase(shared_obj->shared_ref.begin() + static_cast<long long>(i));
+                break;
+            }
+        }
+
         shared_obj = nullptr;
-        shared_value = linked_type{};
     }
 
     [[nodiscard]] constexpr linked_type get_linked_v() const { 
@@ -290,7 +389,7 @@ public:
 
     [[nodiscard]] constexpr bool is_linked() const noexcept { return shared_obj != nullptr; }
 
-    /* OPERATORS */
+    // OPERATORS
     quantum_t& operator=(quantum_t& other_quantum){
         owned_value = other_quantum.owned_value;
         shared_value = other_quantum.shared_value;
@@ -298,17 +397,39 @@ public:
         return *this;
     }
 
-    void operator=(quantum_t&& other_quantum) noexcept {
+    quantum_t& operator=(quantum_t&& other_quantum) noexcept {
         if(this != &other_quantum)
         {
-            owned_value = other_quantum.owned_value;
-            shared_value = other_quantum.shared_value;
-            shared_obj = other_quantum.shared_obj;
+            owned_value = std::move(other_quantum.owned_value);
+            shared_value = std::move(other_quantum.shared_value);
+            shared_obj = std::move(other_quantum.shared_obj);
+            shared_ref = std::move(other_quantum.shared_ref);
+
+            // Deleting this from the references stored by the other_quantum.shared_ref to avoid this->this
+            for(size_t i=0; i < shared_ref.size(); i++){
+                if(shared_ref[i] == this){
+                    shared_ref.erase(shared_ref.begin() + static_cast<long long>(i));
+                    break;
+                }
+            }
+
+            // Changing all the references from other_quantum to *this
+            for(quantum_ptr& e : shared_ref) { e->shared_obj = this; }
+
+            // If other_quantum is linked to another quantum, the reference to other_quantum inside the 
+            // original node is changed to this
+            if(shared_obj != nullptr){
+                for(quantum_ptr& e : shared_obj->shared_ref){
+                    if(e == &other_quantum) { e = this; break; }
+                }
+            }
 
             other_quantum.shared_value = linked_type{}; 
             other_quantum.owned_value = value_type{};
             other_quantum.shared_obj = nullptr;
+            other_quantum.shared_ref.clear();
         }
+        return *this;
     }
 
     quantum_t& operator=(const value_type& new_value){
@@ -365,37 +486,8 @@ public:
     }
 };
 
-namespace quantum {
-class [[nodiscard]] incoherent_size : public std::exception {
-public:
-    [[nodiscard]] const char* what() const noexcept override {
-        return "Incoherent vector size between storage and pounded probability inside drk::uncertain_quantum";
-    }
-};
-
-class strict_uncertain_trait {
-public:
-    template<typename V, typename U>
-    static void Fix(const std::vector<V>& _values, const std::vector<U>& _pounded){
-        if(_values.size() != _pounded.size())
-        throw incoherent_size();
-    }
-};
-
-class free_uncertain_trait {
-public:
-    template<typename V, typename U>
-    static void Fix(const std::vector<V>& _values, std::vector<U>& _pounded){
-        while(_values.size() != _pounded.size()){
-            if(_values.size() < _pounded.size()){
-                _pounded.pop_back();
-            } else _pounded.push_back(0);
-        }
-    }
-};
-}
-
-/* Contains an indefinite number of variables; the one you use is choosen at random */
+/// @brief Contains an indefinite number of variables.
+/// @brief The one you use is choosen at random with the observe() method.
 template<typename T, class Strictness = quantum::free_uncertain_trait>
 class uncertain_quantum {
 public:
@@ -415,7 +507,8 @@ private:
 
 public:
 
-    uncertain_quantum() : m_storage(1, value_type{}), m_poundered_probability(1, 0), choosen_rand(kind_of_dist::uniform) {}
+    uncertain_quantum() 
+    : m_storage(1, value_type{}), m_poundered_probability(1, 0), choosen_rand(kind_of_dist::uniform) {}
 
     explicit uncertain_quantum(const std::vector<value_type>& _storage) 
     : m_storage(std::move(_storage)), m_poundered_probability(1, 0), choosen_rand(kind_of_dist::uniform) {}
@@ -439,12 +532,11 @@ public:
         other.m_storage = std::vector<value_type>(1, value_type{});
         other.m_poundered_probability = std::vector<unsigned int>(1, 0);
         other.choosen_rand = kind_of_dist::uniform;
-        
     }
 
     ~uncertain_quantum() = default;
 
-    /* MAIN METHODS */
+    // MAIN METHODS 
     void change_values(const quantum_t& new_storage) { 
         m_storage = new_storage.m_storage;
         m_poundered_probability = new_storage.m_poundered_probability;
@@ -467,7 +559,7 @@ public:
         return m_storage[impl::_get_random_poundered_int(m_poundered_probability)];
     }
 
-    /* ITERATORS */
+    // ITERATORS
     [[nodiscard]] iterator begin() { return m_storage.begin(); }
 
     [[nodiscard]] iterator end() { return m_storage.end(); }
@@ -476,12 +568,13 @@ public:
 
     [[nodiscard]] const_iterator end() const { return m_storage.end(); }
 
-    /* OPERATORS */
 };
 
+// Template Specialization for uncertain_quantum
 template<typename T>
 using strict_uncertain = uncertain_quantum<T, quantum::strict_uncertain_trait>;
 
+// Specialized functions for all quantums
 template<typename T>
 auto auto_observe(T quantum) requires is_uncertain<T> {
     return quantum.observe();
@@ -511,17 +604,7 @@ template<typename T>
     return uncertain_quantum<T>(_storage, _poundered);
 }
 
-/// @brief Namespace used to store all specialized methods
-namespace quantum{
-
-    /// @brief Method used to get a random quantum_state.
-    /// @return A random quantum_state (_::false_v, _::maybe_v, _::true_v).
-    [[nodiscard]] inline quantum_state get_random_state(){
-        return static_cast<quantum_state>(impl::_get_random_uniform_int(2));
-    }
-
-}
-
+// ostream operators for each quantum
 inline std::ostream& operator<<(std::ostream& ostream, drk::quantum_state state){
     switch(state){
         case drk::quantum_state::false_v: ostream << static_cast<int>(drk::quantum_state::false_v); break;
