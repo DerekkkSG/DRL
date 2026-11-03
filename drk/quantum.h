@@ -1,3 +1,16 @@
+/*
+------------------------------------------------------------------------------------------------------------------------
+Copyright (c) 2026 Derek Salcido
+Its use is under the terms of the MIT license. See LICENSE for details.
+
+This library is for personal or public use, made by Derek himself.
+Official support is limited to copies obtained from the main reppository.
+Third-party distributions are not officialy supported.
+
+If you get to use the library, please don't trust your life on it; it's not the best implemented.
+------------------------------------------------------------------------------------------------------------------------
+*/
+
 #ifndef DRL_QUANTUM_H
 #define DRL_QUANTUM_H
 
@@ -10,15 +23,6 @@
 #include <concepts>
 #include <compare>
 #include <exception>
-
-/*
-------------------------------------------------------------------------------------------------------------------------
-This library is for personal or public use, made by Derek himself.
-The distribution of this library is unsupported unless it comes from the main repository.
-This library includes all related methods and datatypes necessary to accomplish the desires.
-If you get to use the library, please don't trust your life on it; it's not the best implemented.
-------------------------------------------------------------------------------------------------------------------------
-*/
 
 namespace drk { //Start of the library
 
