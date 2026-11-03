@@ -31,8 +31,8 @@ Además, **quantum.h** cuenta con funciones especializadas para crear cada estru
 
 La DRL puede utilizarse directamente desde sus archivos de encabezado presentes en el folder `drk/`. Para agregarlo a tu proyecto:
 
-1. Descarga o clona el repositorio.
-2. Incluye "drk/quantum.h" en tu proyecto.
+1. Clona el repositorio o descarga el archivo de cabezera de interés.
+2. Incluye el archivo de cabezera de interes en tu proyecto.
 3. Compila tu programa con previo soporte a C++20.
 
 ```C++
@@ -71,7 +71,7 @@ Para compilar cualquier proyecto en la que se use la DRL, la compilacion se real
 g++ -std=c++20 main.cpp -o main
 
 #Para compilar los tests o examples
-g++ -std=c++20 tests/readme_example.cpp -o readme_example
+g++ -std=c++20 examples/readme_example.cpp -o readme_example
 ```
 En caso de tener un compilador distinto a gcc, se sustituiría por el compilador de preferencia  compatible con C++20 (ej: clang, MSVC).
 Para ejecutar el programa resultante en Windows, se utiliza el siguiente comando:
