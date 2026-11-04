@@ -508,7 +508,7 @@ private:
     std::vector<value_type> m_storage;
     std::vector<unsigned int> m_poundered_probability;
     kind_of_dist choosen_rand;
-
+    
 public:
 
     uncertain_quantum() 
