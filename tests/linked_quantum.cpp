@@ -3,10 +3,19 @@
 #include <iostream>
 #include <utility>
 #include <memory>
+#include <cassert>
 
 using namespace std;
 
 #ifndef DEBUG_DRL
+
+// Function dependencies for iostream compatibility
+std::ostream& operator<<(std::ostream& ostream, const drk::quantum_state& state);
+
+template<typename Own, typename Linked>
+std::ostream& operator<<(std::ostream& ostream, drk::linked_quantum<Own, Linked> quantum);
+
+// Main testing scene
 int main(){
 
     // Usando los constructores por parametro disponibles
@@ -52,6 +61,10 @@ int main(){
     linked_b = std::move(linked_c);
     cout << linked_a << ' ' << linked_b << ' ' << linked_c << '\n';
 
+    auto linked_checker = drk::make_linked<int, float>(); // El estado por defecto de un linked_quantum
+
+    assert(linked_c == linked_checker);
+
     // Probando la funcion drk::make_linked()
     linked_c = drk::make_linked(4, 5.6f);
     cout << linked_a << ' ' << linked_b << ' ' << linked_c << '\n';
@@ -61,9 +74,18 @@ int main(){
     linked_a = std::move(linked_b);
     cout << linked_a << ' ' << linked_b << ' ' << linked_c << '\n';
 
+    assert(linked_b == linked_checker);
+
     // Comprobando si tiene algun link cada estruxtura con is_linked().
     // Gracias a las operaciones por movimiento, el output debe ser: 0 0 1
     cout << linked_a.is_linked() << ' ' << linked_b.is_linked() << ' ' << linked_c.is_linked() << '\n';
+
+    // Tratando de modificar el valor compartido por movimiento
+    std::shared_ptr<int> forward_checker = make_shared<int>(7);
+    auto linked_obj = drk::make_linked<int, std::shared_ptr<int>>();
+    linked_obj.set_linked_v(std::move(forward_checker));
+
+    assert(forward_checker == nullptr);
 
     // Probando el comportamiento del linked_quantum una vez un objeto se destruye
     {
@@ -83,7 +105,7 @@ int main(){
 
     // El Output de is_linked() para cada linked_quantum debe 1 0 1, ya que la relacion previa de linked_b a linked_a no es posible
     // debido a que linked_a estaria apuntando indirectamente a linked_c.
-    // No se permiten relaciones ciclicas
+    // No se permiten relaciones ciclicas.
     cout << linked_a << ' ' << linked_b << ' ' << linked_c << '\n';
     cout << linked_a.is_linked() << ' ' << linked_b.is_linked() << ' ' << linked_c.is_linked() << '\n';
 
@@ -98,4 +120,22 @@ int main(){
 
     return 0;
 }
+
+// Function declaration
+std::ostream& operator<<(std::ostream& ostream, drk::quantum_state state){
+    switch(state){
+        case drk::quantum_state::false_v: ostream << static_cast<int>(drk::quantum_state::false_v); break;
+        case drk::quantum_state::maybe_v: ostream << static_cast<int>(drk::quantum_state::maybe_v); break;
+        case drk::quantum_state::true_v: ostream << static_cast<int>(drk::quantum_state::true_v); break;
+        default: ostream << static_cast<int>(drk::quantum_state::false_v);
+    }
+    return ostream;
+}
+
+template<typename Own, typename Linked>
+std::ostream& operator<<(std::ostream& ostream, drk::linked_quantum<Own, Linked> quantum){
+    ostream << "{" << quantum.get_own_v() << ", " << quantum.get_linked_v() << "}";
+    return ostream;
+}
+
 #endif
