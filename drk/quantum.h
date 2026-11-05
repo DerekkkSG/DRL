@@ -14,7 +14,6 @@ If you get to use the library, please don't trust your life on it; it's not the 
 #ifndef DRL_QUANTUM_H
 #define DRL_QUANTUM_H
 
-#include <iostream>
 #include <type_traits>
 #include <random>
 #include <utility>
@@ -107,14 +106,15 @@ concept is_ternary = requires(T obj){
 template<typename T, typename Own, typename Quantum>
 concept is_linked_operable = std::is_same_v<T, Own> || std::is_same_v<T, Quantum>;
 
+template<typename T>
+concept is_arithmetic = std::is_arithmetic_v<T>;
+
 /*
 PRELIMINARY CONCEPT; Still in testing stage
 template<typename T>
-concept is_observable = std::is_arithmetic_v<T> || std::is_pointer_v<T> || std::is_enum_v<T>;
+concept is_observable = std::is_is_arithmetic_v<T> || std::is_pointer_v<T> || std::is_enum_v<T>;
 */
 
-// DRK::QUANTUM NAMESPACE
-namespace quantum {
 // EXEPTIONS
 class [[nodiscard]] incoherent_size : public std::exception {
 public:
@@ -123,12 +123,13 @@ public:
     }
 };
 
+// DRK::QUANTUM NAMESPACE
+namespace quantum {
 class strict_uncertain_trait {
 public:
     template<typename V, typename U>
     static void Fix(const std::vector<V>& _values, const std::vector<U>& _pounded){
-        if(_values.size() != _pounded.size())
-        throw incoherent_size();
+        if(_values.size() != _pounded.size()) throw incoherent_size();
     }
 };
 
@@ -136,10 +137,8 @@ class free_uncertain_trait {
 public:
     template<typename V, typename U>
     static void Fix(const std::vector<V>& _values, std::vector<U>& _pounded){
-        while(_values.size() != _pounded.size()){
-            if(_values.size() < _pounded.size()){
-                _pounded.pop_back();
-            } else _pounded.push_back(0);
+        if(_values.size() != _pounded.size()){
+            _pounded.resize(_values.size());
         }
     }
 };
@@ -164,7 +163,7 @@ private:
 public:
     value_type value;
 
-    ternary_quantum() : m_state{quantum_state::true_v}, value{value_type{}} {}
+    ternary_quantum() noexcept : m_state{quantum_state::true_v}, value{value_type{}} {}
 
     ternary_quantum(const value_type& new_value) 
     : m_state{quantum_state::true_v}, value{new_value} {}
@@ -186,18 +185,19 @@ public:
     ~ternary_quantum() = default;
 
     /* MAIN METHODS */
-    void change_state(quantum_state new_state) noexcept { m_state = new_state; }
+    void change_state(const quantum_state& new_state) noexcept { m_state = new_state; }
 
-    void set_value(value_type new_value) { value = new_value; }
+    template<typename V> requires std::is_same_v<std::decay_t<V>, value_type>
+    void set_value(V&& new_value) { value = std::forward<V>(new_value); }
 
     [[nodiscard]] constexpr quantum_state get_state() const noexcept { return m_state; }
 
-    [[nodiscard]] constexpr value_type get_value() const noexcept requires std::is_arithmetic_v<value_type> { return value; }
+    [[nodiscard]] constexpr value_type get_value() const noexcept requires is_arithmetic<value_type> { return value; }
 
     [[nodiscard]] constexpr bool is_defined() const noexcept { return m_state != quantum_state::maybe_v; }
 
     /* OPERATORS */
-    quantum_t& operator=(const quantum_t& new_value){
+    quantum_t& operator=(const quantum_t& new_value) noexcept {
         value = new_value.value;
         m_state = new_value.m_state;
         return *this;
@@ -218,46 +218,46 @@ public:
         return (value <=> other_quantum.value);
     }
 
-    [[nodiscard]] bool operator==(const quantum_t& new_value) const {
+    [[nodiscard]] bool operator==(const quantum_t& new_value) const noexcept {
         return (value == new_value.value) && (m_state == new_value.m_state);
     }
 
-    [[nodiscard]] bool operator!=(const quantum_t& new_value) const {
+    [[nodiscard]] bool operator!=(const quantum_t& new_value) const noexcept {
         return (value != new_value.value) && (m_state != new_value.m_state);
     }
 
-    [[nodiscard]] value_type operator+(const quantum_t& new_value) const requires std::is_arithmetic_v<value_type> {
+    [[nodiscard]] value_type operator+(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
         return value + new_value.value;
     }
 
-    quantum_t& operator+=(const quantum_t& new_value) requires std::is_arithmetic_v<value_type> {
+    quantum_t& operator+=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
             value = value + new_value.value;
             return *this;
     }
 
-    [[nodiscard]] value_type operator-(const quantum_t& new_value) const requires std::is_arithmetic_v<value_type> {
+    [[nodiscard]] value_type operator-(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
         return value - new_value.value;
     }
 
-    quantum_t& operator-=(const quantum_t& new_value) requires std::is_arithmetic_v<value_type> {
+    quantum_t& operator-=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
         value = value - new_value.value;
         return *this;
     }
 
-    [[nodiscard]] value_type operator*(const quantum_t& new_value) const requires std::is_arithmetic_v<value_type> {
+    [[nodiscard]] value_type operator*(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
         return value * new_value.value;
     }
 
-    quantum_t& operator*=(const quantum_t& new_value) requires std::is_arithmetic_v<value_type> {
+    quantum_t& operator*=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
         value = value * new_value.value;
         return *this;
     }
 
-    [[nodiscard]] value_type operator/(const quantum_t& new_value) const requires std::is_arithmetic_v<value_type> {
+    [[nodiscard]] value_type operator/(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
         return value / new_value.value;
     }
 
-    quantum_t& operator/=(const quantum_t& new_value) requires std::is_arithmetic_v<value_type> {
+    quantum_t& operator/=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
         value = value / new_value.value;
         return *this;
     }
@@ -350,7 +350,7 @@ public:
         
         quantum_ptr checking_for_this = get_other_shared(other_quantum, this);
         // Checking for ciclic relationships between linked_quantums. This kind of relations can't exist.
-        if(checking_for_this == this || checking_for_this == nullptr){ return; }
+        if(checking_for_this == nullptr || checking_for_this == this){ return; }
 
         // Deleting posible previous relationships with reset() and asigning the new ones
         reset();
@@ -383,21 +383,24 @@ public:
 
     void set_own_v(value_type new_value) { owned_value = new_value; }
 
-    [[nodiscard]] quantum_ptr get_linked_ptr() const { return shared_obj; }
+    [[nodiscard]] constexpr quantum_ptr get_linked_ptr() const { return shared_obj; }
 
-    void set_linked_v(linked_type new_linked_v) { 
+    template<typename V> requires std::is_same_v<std::decay_t<V>, linked_type>
+    void set_linked_v(V&& new_linked_v) { 
         if(shared_obj != nullptr){
-            shared_obj->set_linked_v(new_linked_v);
-        } else shared_value = new_linked_v;
+            shared_obj->set_linked_v(std::forward<V>(new_linked_v));
+        } else shared_value = std::forward<V>(new_linked_v);
     }
 
     [[nodiscard]] constexpr bool is_linked() const noexcept { return shared_obj != nullptr; }
 
     // OPERATORS
     quantum_t& operator=(quantum_t& other_quantum){
+        reset();
         owned_value = other_quantum.owned_value;
         shared_value = other_quantum.shared_value;
         shared_obj = other_quantum.shared_obj;
+        other_quantum.shared_ref.emplace_back(this);
         return *this;
     }
 
@@ -436,7 +439,7 @@ public:
         return *this;
     }
 
-    quantum_t& operator=(const value_type& new_value){
+    quantum_t& operator=(const value_type& new_value) noexcept {
         owned_value = new_value;
         return *this;
     }
@@ -445,46 +448,46 @@ public:
         return (owned_value <=> other_quantum.owned_value);
     }
 
-    [[nodiscard]] bool operator==(const quantum_t& other_quantum) const {
+    [[nodiscard]] bool operator==(const quantum_t& other_quantum) const noexcept {
         return (owned_value == other_quantum.owned_value);
     }
 
-    [[nodiscard]] bool operator!=(const quantum_t& other_quantum) const {
-        return (owned_value == other_quantum.owned_value);
+    [[nodiscard]] bool operator!=(const quantum_t& other_quantum) const noexcept {
+        return (owned_value != other_quantum.owned_value);
     }
     
-    [[nodiscard]] value_type operator+(const quantum_t& rhs_quantum) const requires std::is_arithmetic_v<value_type> {
+    [[nodiscard]] value_type operator+(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
         return owned_value + rhs_quantum.owned_value;
     }
 
-    quantum_t& operator+=(const quantum_t& new_value) requires std::is_arithmetic_v<value_type> {
+    quantum_t& operator+=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
         owned_value = owned_value + new_value.owned_value;
         return *this;
     }
 
-    [[nodiscard]] value_type operator-(const quantum_t& rhs_quantum) const requires std::is_arithmetic_v<value_type> {
+    [[nodiscard]] value_type operator-(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
         return owned_value - rhs_quantum.owned_value;
     }
 
-    quantum_t& operator-=(const quantum_t& new_value) requires std::is_arithmetic_v<value_type> {
+    quantum_t& operator-=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
         owned_value = owned_value - new_value.owned_value;
         return *this;
     }
 
-    [[nodiscard]] value_type operator*(const quantum_t& rhs_quantum) const requires std::is_arithmetic_v<value_type> {
+    [[nodiscard]] value_type operator*(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
         return owned_value * rhs_quantum.owned_value;
     }
 
-    quantum_t& operator*=(const quantum_t& new_value) requires std::is_arithmetic_v<value_type> {
+    quantum_t& operator*=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
         owned_value = owned_value * new_value.owned_value;
         return *this;
     }
 
-    [[nodiscard]] value_type operator/(const quantum_t& rhs_quantum) const requires std::is_arithmetic_v<value_type> {
+    [[nodiscard]] value_type operator/(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
         return owned_value / rhs_quantum.owned_value;
     }
 
-    quantum_t& operator/=(const quantum_t& new_value) requires std::is_arithmetic_v<value_type> {
+    quantum_t& operator/=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
         owned_value = owned_value / new_value.owned_value;
         return *this;
     }
@@ -508,10 +511,9 @@ private:
     std::vector<value_type> m_storage;
     std::vector<unsigned int> m_poundered_probability;
     kind_of_dist choosen_rand;
-    
 public:
 
-    uncertain_quantum() 
+    uncertain_quantum()
     : m_storage(1, value_type{}), m_poundered_probability(1, 0), choosen_rand(kind_of_dist::uniform) {}
 
     explicit uncertain_quantum(const std::vector<value_type>& _storage) 
@@ -541,36 +543,49 @@ public:
     ~uncertain_quantum() = default;
 
     // MAIN METHODS 
-    void change_values(const quantum_t& new_storage) { 
-        m_storage = new_storage.m_storage;
-        m_poundered_probability = new_storage.m_poundered_probability;
+    template<typename V, typename U> 
+    requires std::is_same_v<std::decay_t<V>, std::vector<value_type>> 
+          && std::is_same_v<std::decay_t<U>, std::vector<unsigned int>>
+    void change_values(V&& new_values, U&& new_poundered = {})
+    { 
+        m_storage = std::forward<V>(new_values);
+        if(!new_poundered.empty()) m_poundered_probability = std::forward<U>(new_poundered);
         Strictness::Fix(m_storage, m_poundered_probability);
     }
 
     void make_uniform() noexcept { choosen_rand = kind_of_dist::uniform; }
 
-    void make_pounded(const std::vector<unsigned int>& new_poundered){
+    void make_pounded() noexcept { choosen_rand = kind_of_dist::pounded; }
+
+    template<typename V> requires std::is_same_v<std::decay_t<V>, std::vector<unsigned int>>
+    void make_pounded(V&& new_poundered) {
         choosen_rand = kind_of_dist::pounded;
-        m_poundered_probability = new_poundered;
+        m_poundered_probability = std::forward<V>(new_poundered);
         Strictness::Fix(m_storage, m_poundered_probability);
     }
 
-    [[nodiscard]] value_type observe(){
+    [[nodiscard]] value_type observe() noexcept {
         if(m_storage.size() < 1) return value_type{};
         if(choosen_rand == kind_of_dist::uniform) {
             return m_storage[impl::_get_random_uniform_int(m_storage.size()-1)];
         }
+        int count{0};
+        for(const auto& possibility : m_poundered_probability){
+            if(possibility == 0) count++;
+            else break;
+        }
+        if(count == m_poundered_probability.size()) return value_type{};
         return m_storage[impl::_get_random_poundered_int(m_poundered_probability)];
     }
 
     // ITERATORS
-    [[nodiscard]] iterator begin() { return m_storage.begin(); }
+    [[nodiscard]] constexpr iterator begin() noexcept { return m_storage.begin(); }
 
-    [[nodiscard]] iterator end() { return m_storage.end(); }
+    [[nodiscard]] constexpr iterator end() noexcept { return m_storage.end(); }
 
-    [[nodiscard]] const_iterator begin() const { return m_storage.begin(); }
+    [[nodiscard]] constexpr const_iterator begin() const noexcept { return m_storage.begin(); }
 
-    [[nodiscard]] const_iterator end() const { return m_storage.end(); }
+    [[nodiscard]] constexpr const_iterator end() const noexcept { return m_storage.end(); }
 
 };
 
@@ -606,29 +621,6 @@ template<typename T>
     const std::vector<unsigned int>& _poundered = std::vector<unsigned int>(1, 0))
 {
     return uncertain_quantum<T>(_storage, _poundered);
-}
-
-// ostream operators for each quantum
-inline std::ostream& operator<<(std::ostream& ostream, drk::quantum_state state){
-    switch(state){
-        case drk::quantum_state::false_v: ostream << static_cast<int>(drk::quantum_state::false_v); break;
-        case drk::quantum_state::maybe_v: ostream << static_cast<int>(drk::quantum_state::maybe_v); break;
-        case drk::quantum_state::true_v: ostream << static_cast<int>(drk::quantum_state::true_v); break;
-        default: ostream << static_cast<int>(drk::quantum_state::false_v);
-    }
-    return ostream;
-}
-
-template<typename Own, typename Linked>
-std::ostream& operator<<(std::ostream& ostream, drk::linked_quantum<Own, Linked> quantum){
-    ostream << "{" << quantum.get_own_v() << ", " << quantum.get_linked_v() << "}";
-    return ostream;
-}
-
-template<typename T>
-std::ostream& operator<<(std::ostream& ostream, drk::ternary_quantum<T> quantum){
-    ostream << "{" << quantum.get_value() << ", " << quantum.get_state() << "}";
-    return ostream;
 }
 
 } //End of the library

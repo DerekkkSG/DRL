@@ -3,8 +3,8 @@
 
 #include <iostream>
 
-#define DEBUG_DRL
 #ifndef DEBUG_DRL
+
 int main() {
 
     drk::ternary_quantum<int> var {
@@ -13,8 +13,9 @@ int main() {
     };
 
     std::cout << var.get_value() << '\n';
-    std::cout << var.get_state() << '\n';
+    std::cout << static_cast<int>(var.get_state()) << '\n';
 
     return 0;
 }
+
 #endif
