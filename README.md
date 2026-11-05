@@ -4,7 +4,7 @@
 ![Estado](https://img.shields.io/badge/Estado-En_Desarrollo-brightgreen?style=for-the-badge)
 ![Formato](https://img.shields.io/badge/Formato-Header_Only-purple?style=for-the-badge)
 
-DRL es un proyecto personal inspirado por la STL y liderado por Derek Salcido centrado en la creación de **librerías header-only** propias en C++20 para uso personal o público. 
+DRL es un proyecto personal inspirado por la STL y liderado por Derek Salcido centrado en la creación de librerías propias **header-only** en C++20 para uso personal o público. 
 
 Esta biblioteca busca experimentar con formas creativas de implementar y diseñar astracciones propias mediante el uso de plantillas. Ésta tiene fines experimentales y no necesariamente intenta resolver problemas reales ni crear una estructura igual de robusta que la librería estándar. Sin embargo, se pueden usar libremente para solucionar posibles problemas en proyectos personales que se puedan presentar.
 
@@ -12,7 +12,7 @@ Esta biblioteca busca experimentar con formas creativas de implementar y diseña
 
 DRL incluye por el momento una sola librería, aunque con la visión de agregar muchas más en un futuro:
 
-* **quantum.h**: Es una librería inspirada por los conceptos fundamentales de la mecánica cuántica, intentando implementar de la manera más clara y sencilla posible conceptos como la incertidumbre o superposición cuántica sin intentar resolver problemas realmente relacionados con estos temas.
+* **quantum.h:** Es una librería inspirada por los conceptos fundamentales de la mecánica cuántica, intentando implementar de la manera más clara y sencilla posible conceptos como la incertidumbre o superposición cuántica sin intentar resolver problemas realmente relacionados con estos temas.
 
 #### Características de quantum.h
 
@@ -27,6 +27,14 @@ Además, **quantum.h** cuenta con funciones especializadas para crear cada estru
 
 * Un compilador que soporte completamente C++20.
 * No requiere herramientas externas como CMake o bibliotecas de terceros.
+
+## Compatibilidad
+
+La DRL ha sido verificada rigurosamente para garantizar compatibilidad con el estándar de C++20 en los siguientes entornos:
+
+* **GCC:** Versión 11.1 o superior.
+* **Clang:** Versión 13.0.0 o superior.
+* **MSVC:** Versión 19.29 o superior.
 
 ## Instalación y Uso
 
@@ -83,6 +91,10 @@ Para ejecutar el programa resultante en Windows, se utiliza el siguiente comando
 ```
 
 ## Planes Futuros
+
+Para el futuro desarrollo de la DRL, aún se está pensando en qué podría desarrollarse. Por el momento, se tiene pensado agregar las siguientes librerias:
+
+* **hive.h:** Ésta es una libreria inspirada por las abejas y su forma tan ordenada de trabajar. Su objetivo es intentar replicar esa misma forma de trabajo pero sobre estructuras de datos y algoritmos, tomando como inspiración la sintaxis de **std::views** y su operador pipeline |.
 
 ## Licencia
 

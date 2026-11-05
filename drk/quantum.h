@@ -18,7 +18,6 @@ If you get to use the library, please don't trust your life on it; it's not the 
 #include <random>
 #include <utility>
 #include <vector>
-#include <memory>
 #include <concepts>
 #include <compare>
 #include <exception>
