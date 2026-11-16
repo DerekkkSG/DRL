@@ -31,25 +31,29 @@ enum class quantum_state : int {
     true_v
 };
 
-[[nodiscard]] inline int operator+(const quantum_state& lhs_state, const quantum_state& rhs_state){
+[[nodiscard]] inline constexpr int operator+(const quantum_state& lhs_state, const quantum_state& rhs_state){
     return static_cast<int>(lhs_state) + static_cast<int>(rhs_state);
 }
 
-[[nodiscard]] inline int operator-(const quantum_state& lhs_state, const quantum_state& rhs_state){
+[[nodiscard]] inline constexpr int operator-(const quantum_state& lhs_state, const quantum_state& rhs_state){
     return static_cast<int>(lhs_state) - static_cast<int>(rhs_state);
 }
 
-[[nodiscard]] inline quantum_state operator*(const quantum_state& lhs_state, const quantum_state& rhs_state){
-    return static_cast<quantum_state>(static_cast<int>(lhs_state) * static_cast<int>(rhs_state));
+[[nodiscard]] inline constexpr quantum_state operator*(const quantum_state& lhs_state, const quantum_state& rhs_state){
+    int result = static_cast<int>(lhs_state) * static_cast<int>(rhs_state);
+    if(result > 2) result = 2;
+    return static_cast<quantum_state>(result);
 }
 
-[[nodiscard]] inline quantum_state operator/(const quantum_state& lhs_state, const quantum_state& rhs_state){
-    return static_cast<quantum_state>(static_cast<int>(lhs_state) * static_cast<int>(rhs_state));
+[[nodiscard]] inline constexpr quantum_state operator/(const quantum_state& lhs_state, const quantum_state& rhs_state){
+    int result = static_cast<int>(lhs_state) * static_cast<int>(rhs_state);
+    if(result > 2) result = 2;
+    return static_cast<quantum_state>(result);
 }
 
 namespace impl{
 
-    inline std::mt19937& _get_device_impl(){
+    inline std::mt19937& _get_device(){
         static std::random_device _rd;
         static std::mt19937 get(_rd());
         return get;
@@ -57,13 +61,13 @@ namespace impl{
 
     inline size_t _get_random_uniform_int(const size_t& _top_value){
         std::uniform_int_distribution<unsigned int> _get_rand(0, static_cast<unsigned int>(_top_value));
-        return static_cast<size_t>(_get_rand(_get_device_impl()));
+        return static_cast<size_t>(_get_rand(_get_device()));
     }
 
     inline size_t _get_random_poundered_int(const std::vector<unsigned int>& _poundered_values){
         if(_poundered_values.empty()) return 0;
         std::discrete_distribution<unsigned int> _get_poundered(_poundered_values.begin(), _poundered_values.end());
-        return static_cast<size_t>(_get_poundered(_get_device_impl()));
+        return static_cast<size_t>(_get_poundered(_get_device()));
     }
 
 }
@@ -91,8 +95,8 @@ template<typename T>
 concept is_linked = requires(T obj){
     { obj.is_linked() };
     { obj.reset() };
-    { obj.get_linked_v() };
-    { obj.get_own_v() };
+    { obj.shared() };
+    { obj.owned() };
 };
 
 template<typename T>
@@ -107,12 +111,6 @@ concept is_linked_operable = std::is_same_v<T, Own> || std::is_same_v<T, Quantum
 
 template<typename T>
 concept is_arithmetic = std::is_arithmetic_v<T>;
-
-/*
-PRELIMINARY CONCEPT; Still in testing stage
-template<typename T>
-concept is_observable = std::is_is_arithmetic_v<T> || std::is_pointer_v<T> || std::is_enum_v<T>;
-*/
 
 // EXEPTIONS
 class [[nodiscard]] incoherent_size : public std::exception {
@@ -186,7 +184,7 @@ public:
     /* MAIN METHODS */
     void change_state(const quantum_state& new_state) noexcept { m_state = new_state; }
 
-    template<typename V> requires std::is_same_v<std::decay_t<V>, value_type>
+    template<typename V> requires std::same_as<std::decay_t<V>, value_type>
     void set_value(V&& new_value) { value = std::forward<V>(new_value); }
 
     [[nodiscard]] constexpr quantum_state get_state() const noexcept { return m_state; }
@@ -213,19 +211,19 @@ public:
         return *this;
     }
 
-    [[nodiscard]] auto operator<=>(const quantum_t& other_quantum) const {
+    [[nodiscard]] constexpr auto operator<=>(const quantum_t& other_quantum) const {
         return (value <=> other_quantum.value);
     }
 
-    [[nodiscard]] bool operator==(const quantum_t& new_value) const noexcept {
+    [[nodiscard]] constexpr bool operator==(const quantum_t& new_value) const noexcept {
         return (value == new_value.value) && (m_state == new_value.m_state);
     }
 
-    [[nodiscard]] bool operator!=(const quantum_t& new_value) const noexcept {
-        return (value != new_value.value) && (m_state != new_value.m_state);
+    [[nodiscard]] constexpr bool operator!=(const quantum_t& new_value) const noexcept {
+        return (value != new_value.value) || (m_state != new_value.m_state);
     }
 
-    [[nodiscard]] value_type operator+(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator+(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
         return value + new_value.value;
     }
 
@@ -234,7 +232,7 @@ public:
             return *this;
     }
 
-    [[nodiscard]] value_type operator-(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator-(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
         return value - new_value.value;
     }
 
@@ -243,7 +241,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] value_type operator*(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator*(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
         return value * new_value.value;
     }
 
@@ -252,7 +250,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] value_type operator/(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator/(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
         return value / new_value.value;
     }
 
@@ -285,8 +283,8 @@ private:
         // If the shared_ptr of other is this, returns nullptr. If not, we search in the next node.
         // Then, if the next node is nullptr, we've reached the end and, as a consequence, we return other's memory address (ptr)
         if (other_quantum.shared_obj == this_quantum) return nullptr;
-        else if(other_quantum.shared_obj != nullptr) return get_other_shared(*(other_quantum.shared_obj), this_quantum);
-        else return &other_quantum;
+        else if(other_quantum.shared_obj == nullptr) return &other_quantum;
+        else return get_other_shared(*(other_quantum.shared_obj), this_quantum);
     }
 
 public:
@@ -301,39 +299,34 @@ public:
 
     linked_quantum(quantum_t& other_quantum)
     : shared_value{other_quantum.shared_value}, owned_value{other_quantum.owned_value},
-      shared_obj{other_quantum.shared_obj} {}
+      shared_obj{other_quantum.shared_obj} 
+    {
+        if(shared_obj != nullptr) shared_obj->shared_ref.push_back(this);
+    }
 
     linked_quantum(quantum_t&& other_quantum) noexcept
-    : owned_value{std::move(other_quantum.owned_value)}, shared_value{std::move(other_quantum.shared_value)},
+    : shared_value{std::move(other_quantum.shared_value)}, owned_value{std::move(other_quantum.owned_value)},
       shared_obj{std::move(other_quantum.shared_obj)}, shared_ref{std::move(other_quantum.shared_ref)}
     { 
-        // Deleting this from the references stored by the other_quantum.shared_ref to avoid this->this
-        for(size_t i=0; i < shared_ref.size(); i++){
-            if(shared_ref[i] == this){
-                shared_ref.erase(shared_ref.begin() + static_cast<long long>(i));
-                break;
-            }
-        }
-
         // Changing all the references from other_quantum to *this
-        for(quantum_ptr& e : shared_ref) { e->shared_obj = this; }
+        for(quantum_ptr& searching_this : shared_ref) { searching_this->shared_obj = this; }
 
         // If other_quantum is linked to another quantum, the reference to other_quantum inside the original node
         // is changed to this
         if(shared_obj != nullptr){
-            for(quantum_ptr& e : shared_obj->shared_ref){
-                if(e == &other_quantum) { e = this; break; }
+            for(quantum_ptr& changing_this : shared_obj->shared_ref){
+                if(changing_this == &other_quantum) { changing_this = this; break; }
             }
         }
 
         other_quantum.shared_value = linked_type{}; 
-        other_quantum.owned_value = value_type{};
-        other_quantum.shared_obj = nullptr;
+        other_quantum.owned_value  = value_type{};
+        other_quantum.shared_obj   = nullptr;
         other_quantum.shared_ref.clear();
     }
 
-    //The deletion of this constructor was made to prevent unwanted behaviour with the class thanks
-    //to the const keyword and unchangeable values
+    // The deletion of this constructor was made to prevent unwanted behaviour with the class thanks
+    // to the const keyword and unchangeable values
     linked_quantum(const quantum_t& other_quantum) = delete;
 
     ~linked_quantum() {
@@ -349,13 +342,29 @@ public:
         
         quantum_ptr checking_for_this = get_other_shared(other_quantum, this);
         // Checking for ciclic relationships between linked_quantums. This kind of relations can't exist.
-        if(checking_for_this == nullptr || checking_for_this == this){ return; }
+        if(checking_for_this == nullptr || checking_for_this == this) return;
 
         // Deleting posible previous relationships with reset() and asigning the new ones
         reset();
         shared_obj = &other_quantum;
         shared_value = linked_type{};
         other_quantum.shared_ref.emplace_back(this);
+    }
+
+    void link_to_root(quantum_t& other_quantum) {
+        if(this == &other_quantum) return;
+        if(other_quantum.shared_obj == nullptr) return;
+
+        // Checking for ciclic relationships between linked_quantums
+        // Also, the function tries to find the actual top of the tree
+        quantum_ptr finding_the_root = get_other_shared(other_quantum, this);
+        if(finding_the_root == nullptr || finding_the_root == this) return;
+
+        // Deleting posible previous relationships with reset() and asigning the new ones
+        reset();
+        shared_obj = finding_the_root;
+        shared_value = linked_type{};
+        finding_the_root->shared_ref.emplace_back(this);
     }
 
     void reset(){
@@ -373,21 +382,31 @@ public:
         shared_obj = nullptr;
     }
 
-    [[nodiscard]] constexpr linked_type get_linked_v() const { 
-        if(shared_obj != nullptr) return shared_obj->get_linked_v(); 
+    [[nodiscard]] linked_type& shared() noexcept { 
+        if(shared_obj != nullptr) return shared_obj->shared(); 
         else return shared_value;
     }
 
-    [[nodiscard]] constexpr value_type get_own_v() const noexcept { return owned_value; }
+    [[nodiscard]] const linked_type& shared() const noexcept { 
+        if(shared_obj != nullptr) return shared_obj->shared(); 
+        else return shared_value;
+    }
 
-    void set_own_v(value_type new_value) { owned_value = new_value; }
+    [[nodiscard]] value_type& owned() noexcept { return owned_value; }
 
-    [[nodiscard]] constexpr quantum_ptr get_linked_ptr() const { return shared_obj; }
+    [[nodiscard]] const value_type& owned() const noexcept { return owned_value; }
 
-    template<typename V> requires std::is_same_v<std::decay_t<V>, linked_type>
-    void set_linked_v(V&& new_linked_v) { 
+    [[nodiscard]] constexpr quantum_ptr linked_ptr() const noexcept { return shared_obj; }
+
+    template<typename V> requires std::same_as<std::decay_t<V>, value_type>
+    void set_owned(V&& new_value) { 
+        owned_value = std::forward<V>(new_value); 
+    }
+
+    template<typename V> requires std::same_as<std::decay_t<V>, linked_type>
+    void set_shared(V&& new_linked_v) { 
         if(shared_obj != nullptr){
-            shared_obj->set_linked_v(std::forward<V>(new_linked_v));
+            shared_obj->set_shared(std::forward<V>(new_linked_v));
         } else shared_value = std::forward<V>(new_linked_v);
     }
 
@@ -395,44 +414,54 @@ public:
 
     // OPERATORS
     quantum_t& operator=(quantum_t& other_quantum){
-        reset();
-        owned_value = other_quantum.owned_value;
-        shared_value = other_quantum.shared_value;
-        shared_obj = other_quantum.shared_obj;
-        other_quantum.shared_ref.emplace_back(this);
+        if(this != &other_quantum){
+            reset();
+            owned_value = other_quantum.owned_value;
+            shared_value = other_quantum.shared_value;
+            shared_obj = other_quantum.shared_obj;
+            if(shared_obj != nullptr) shared_obj->shared_ref.push_back(this);
+        }
         return *this;
     }
 
     quantum_t& operator=(quantum_t&& other_quantum) noexcept {
         if(this != &other_quantum)
         {
-            owned_value = std::move(other_quantum.owned_value);
+            owned_value  = std::move(other_quantum.owned_value);
             shared_value = std::move(other_quantum.shared_value);
-            shared_obj = std::move(other_quantum.shared_obj);
-            shared_ref = std::move(other_quantum.shared_ref);
+            shared_obj   = std::move(other_quantum.shared_obj);
 
             // Deleting this from the references stored by the other_quantum.shared_ref to avoid this->this
-            for(size_t i=0; i < shared_ref.size(); i++){
-                if(shared_ref[i] == this){
-                    shared_ref.erase(shared_ref.begin() + static_cast<long long>(i));
+            for(size_t i=0; i < other_quantum.shared_ref.size(); i++){
+                if(other_quantum.shared_ref[i] == this){
+                    other_quantum.shared_ref.erase(other_quantum.shared_ref.begin() + static_cast<long long>(i));
                     break;
                 }
             }
 
             // Changing all the references from other_quantum to *this
-            for(quantum_ptr& e : shared_ref) { e->shared_obj = this; }
+            for(quantum_ptr& changing_to_this : other_quantum.shared_ref) { changing_to_this->shared_obj = this; }
 
+            if(!shared_ref.empty()){
+                other_quantum.shared_ref.insert(
+                    other_quantum.shared_ref.end(),
+                    std::make_move_iterator(shared_ref.begin()),
+                    std::make_move_iterator(shared_ref.end()) 
+                );
+            }
+
+            shared_ref = std::move(other_quantum.shared_ref);
             // If other_quantum is linked to another quantum, the reference to other_quantum inside the 
             // original node is changed to this
             if(shared_obj != nullptr){
-                for(quantum_ptr& e : shared_obj->shared_ref){
-                    if(e == &other_quantum) { e = this; break; }
+                for(quantum_ptr& changing_this : shared_obj->shared_ref){
+                    if(changing_this == &other_quantum) { changing_this = this; break; }
                 }
             }
 
             other_quantum.shared_value = linked_type{}; 
-            other_quantum.owned_value = value_type{};
-            other_quantum.shared_obj = nullptr;
+            other_quantum.owned_value  = value_type{};
+            other_quantum.shared_obj   = nullptr;
             other_quantum.shared_ref.clear();
         }
         return *this;
@@ -443,19 +472,39 @@ public:
         return *this;
     }
 
-    [[nodiscard]] auto operator<=>(const quantum_t& other_quantum) const {
+    [[nodiscard]] linked_type& operator*() noexcept {
+        if(shared_obj != nullptr) return shared_obj->shared(); 
+        else return shared_value;
+    }
+
+    [[nodiscard]] const linked_type& operator*() const noexcept {
+        if(shared_obj != nullptr) return shared_obj->shared(); 
+        else return shared_value;
+    }
+
+    [[nodiscard]] linked_type* operator->() noexcept {
+        if(shared_obj != nullptr) return &shared_obj->shared(); 
+        else return &shared_value;
+    }
+
+    [[nodiscard]] const linked_type* operator->() const noexcept {
+        if(shared_obj != nullptr) return &shared_obj->shared(); 
+        else return &shared_value;
+    }
+
+    [[nodiscard]] constexpr auto operator<=>(const quantum_t& other_quantum) const {
         return (owned_value <=> other_quantum.owned_value);
     }
 
-    [[nodiscard]] bool operator==(const quantum_t& other_quantum) const noexcept {
+    [[nodiscard]] constexpr bool operator==(const quantum_t& other_quantum) const noexcept {
         return (owned_value == other_quantum.owned_value);
     }
 
-    [[nodiscard]] bool operator!=(const quantum_t& other_quantum) const noexcept {
+    [[nodiscard]] constexpr bool operator!=(const quantum_t& other_quantum) const noexcept {
         return (owned_value != other_quantum.owned_value);
     }
     
-    [[nodiscard]] value_type operator+(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator+(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
         return owned_value + rhs_quantum.owned_value;
     }
 
@@ -464,7 +513,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] value_type operator-(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator-(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
         return owned_value - rhs_quantum.owned_value;
     }
 
@@ -473,7 +522,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] value_type operator*(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator*(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
         return owned_value * rhs_quantum.owned_value;
     }
 
@@ -482,7 +531,7 @@ public:
         return *this;
     }
 
-    [[nodiscard]] value_type operator/(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator/(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
         return owned_value / rhs_quantum.owned_value;
     }
 
@@ -512,14 +561,13 @@ private:
     kind_of_dist choosen_rand;
 public:
 
-    uncertain_quantum()
-    : m_storage(1, value_type{}), m_poundered_probability(1, 0), choosen_rand(kind_of_dist::uniform) {}
+    uncertain_quantum() = default;
 
-    explicit uncertain_quantum(const std::vector<value_type>& _storage) 
-    : m_storage(std::move(_storage)), m_poundered_probability(1, 0), choosen_rand(kind_of_dist::uniform) {}
-
-    uncertain_quantum(const std::vector<value_type>& _storage, const std::vector<unsigned int>& _poundered)
-    : m_storage(std::move(_storage)), m_poundered_probability(std::move(_poundered)), choosen_rand(kind_of_dist::pounded) {
+    template<typename V, typename U> 
+    requires std::same_as<std::decay_t<V>, std::vector<value_type>>
+          && std::same_as<std::decay_t<U>, std::vector<unsigned int>>
+    uncertain_quantum(V&& _storage = {}, U&& _poundered = {})
+    : m_storage(std::forward<V>(_storage)), m_poundered_probability(std::forward<U>(_poundered)), choosen_rand(kind_of_dist::pounded) {
         Strictness::Fix(m_storage, m_poundered_probability);
     }
 
@@ -543,8 +591,8 @@ public:
 
     // MAIN METHODS 
     template<typename V, typename U> 
-    requires std::is_same_v<std::decay_t<V>, std::vector<value_type>> 
-          && std::is_same_v<std::decay_t<U>, std::vector<unsigned int>>
+    requires std::same_as<std::decay_t<V>, std::vector<value_type>> 
+          && std::same_as<std::decay_t<U>, std::vector<unsigned int>>
     void change_values(V&& new_values, U&& new_poundered = {})
     { 
         m_storage = std::forward<V>(new_values);
@@ -556,15 +604,15 @@ public:
 
     void make_pounded() noexcept { choosen_rand = kind_of_dist::pounded; }
 
-    template<typename V> requires std::is_same_v<std::decay_t<V>, std::vector<unsigned int>>
+    template<typename V> requires std::same_as<std::decay_t<V>, std::vector<unsigned int>>
     void make_pounded(V&& new_poundered) {
         choosen_rand = kind_of_dist::pounded;
         m_poundered_probability = std::forward<V>(new_poundered);
         Strictness::Fix(m_storage, m_poundered_probability);
     }
 
-    [[nodiscard]] value_type observe() noexcept {
-        if(m_storage.size() < 1) return value_type{};
+    [[nodiscard]] value_type observe() {
+        if(m_storage.empty()) return value_type{};
         if(choosen_rand == kind_of_dist::uniform) {
             return m_storage[impl::_get_random_uniform_int(m_storage.size()-1)];
         }
@@ -578,13 +626,13 @@ public:
     }
 
     // ITERATORS
-    [[nodiscard]] constexpr iterator begin() noexcept { return m_storage.begin(); }
+    [[nodiscard]] iterator begin() noexcept { return m_storage.begin(); }
 
-    [[nodiscard]] constexpr iterator end() noexcept { return m_storage.end(); }
+    [[nodiscard]] iterator end() noexcept { return m_storage.end(); }
 
-    [[nodiscard]] constexpr const_iterator begin() const noexcept { return m_storage.begin(); }
+    [[nodiscard]] const_iterator begin() const noexcept { return m_storage.begin(); }
 
-    [[nodiscard]] constexpr const_iterator end() const noexcept { return m_storage.end(); }
+    [[nodiscard]] const_iterator end() const noexcept { return m_storage.end(); }
 
 };
 
@@ -620,6 +668,14 @@ template<typename T>
     const std::vector<unsigned int>& _poundered = std::vector<unsigned int>(1, 0))
 {
     return uncertain_quantum<T>(_storage, _poundered);
+}
+
+template<typename T>
+[[nodiscard]] strict_uncertain<T> make_strict_uncertain(
+    const std::vector<T>& _storage = std::vector<T>(1, T{}),
+    const std::vector<unsigned int>& _poundered = std::vector<unsigned int>(1, 0))
+{
+    return strict_uncertain<T>(_storage, _poundered);
 }
 
 } //End of the library

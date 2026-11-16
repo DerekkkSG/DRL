@@ -105,11 +105,11 @@ int main(){
     sensor_a.link(sensor_b); // a is linked to b
     sensor_b.link(sensor_c); // b is linked to c
 
-    sensor_a.set_linked_v(40); // a changes the shared value to 40
+    sensor_a.set_shared(40); // a changes the shared value to 40
 
-    std::cout << sensor_a.get_linked_v() << ' ';
-    std::cout << sensor_b.get_linked_v() << ' ';
-    std::cout << sensor_c.get_linked_v() << '\n';
+    std::cout << sensor_a.shared() << ' ';
+    std::cout << sensor_b.shared() << ' ';
+    std::cout << sensor_c.shared() << '\n';
 
     // This prints out: 40 40 40
     // All the owned values stay the same
@@ -118,7 +118,36 @@ int main(){
 }
 ```
 
-If you don't want to have a relationship with another `linked_quantum` anymore, you can use the `reset()` method to make that relationship dissapears:
+If you don't want to have a relationship with another `linked_quantum` anymore, you can use the `reset()` method to make that relationship dissapear:
+
+```C++
+#include "quantum.h"
+#include <iostream>
+
+int main(){
+
+    drk::linked_quantum<int, int> sensor_a{30, 2};
+    drk::linked_quantum<int, int> sensor_b{16, 5};
+
+    sensor_a.link(sensor_b); // a links to b
+
+    std::cout << sensor_a.shared() << ' ';
+    std::cout << sensor_b.shared() << '\n'; 
+    // This prints: 5 5
+
+    sensor_a.reset(); // It breaks its relationship with b
+
+    std::cout << sensor_a.shared() << ' ';
+    std::cout << sensor_b.shared() << '\n'; 
+    // This prints: 0 5
+    // When calling reset(), the shared value is reseted along its relationship
+    // b maintains its state as if nothing would've happen
+
+    return 0;
+}
+```
+
+As we saw in the previous example, `reset()` only breaks the relationship that it has with the `linked_quantum` it's linked with: all the nodes stay as they are because they're not being affected by the `reset()` call from any other `linked_quantum` that isn't themselves. To better understand this concept, let's look at a little more complicated example: 
 
 ```C++
 #include "quantum.h"
@@ -135,15 +164,18 @@ int main(){
     sensor_b.link(sensor_c); // b is linked to c
     sensor_d.link(sensor_c); // d is linked to c as well
 
-    sensor_a.set_linked_v('e'); // a changes the shared value of c to 'e'
-    sensor_b.reset(); // The relationship of b with c is broken, so a also losses access to c's value
+    sensor_a.set_shared('e'); // a changes the shared value of c to 'e'
 
-    sensor_a.set_linked_v('f'); // a changes the shared value of b to 'f'
+    sensor_b.reset(); 
+    // The relationship of b with c is broken
+    // So a also losses access to c's value
 
-    std::cout << sensor_a.get_linked_v() << ' ';
-    std::cout << sensor_b.get_linked_v() << ' ';
-    std::cout << sensor_c.get_linked_v() << ' ';
-    std::cout << sensor_d.get_linked_v() << '\n';
+    sensor_a.set_shared('f'); // a changes the shared value of b to 'f'
+
+    std::cout << sensor_a.shared() << ' ';
+    std::cout << sensor_b.shared() << ' ';
+    std::cout << sensor_c.shared() << ' ';
+    std::cout << sensor_d.shared() << '\n';
 
     // This prints out: f f e e
 
@@ -151,7 +183,7 @@ int main(){
 }
 ```
 
-One thing to take into consideration is to avoid cyclic relationships at all cost. Even though the class has a way to avoid making these kind of mistakes, it's always better to avoid them if you notice it to prevent pointer errors.
+One thing to take into consideration is to avoid cyclic relationships at all costs. Even though the class itself has a way to avoid making this kind of mistake, it's always better to avoid it if you notice it to prevent infinite recursion.
 
 ## Uncertain Quantum
 
@@ -222,4 +254,4 @@ In general, the `quantum.h` library offers alternatives to some problems that yo
 
 ## Licenses
 
-The work here was written by Derek himself. The code of this repository is open sourced under the MIT License.
+The work here was written by Derek himself. The code of this repository is open sourced under the MIT License. For further undertanding, read LICENSE.
