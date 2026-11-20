@@ -22,6 +22,16 @@ If you get to use the library, please don't trust your life on it; it's not the 
 #include <compare>
 #include <exception>
 
+#if defined(_MSVC_LANG)
+    #if _MSVC_LANG < 202002L
+        #error "quantum.h is not compatible with your current version of C++. You need to compile with /std:c++20 at minimum."
+    #endif
+#else 
+    #if __cplusplus < 202002L
+        #error "quantum.h is not compatible with your current version of C++. You need to compile with -std=c++20 at minimum."
+    #endif
+#endif
+
 namespace drk { //Start of the library
 
 /// @brief A set of discrete states to express three distinct logical values
@@ -70,6 +80,14 @@ namespace impl{
         return static_cast<size_t>(_get_poundered(_get_device()));
     }
 
+    template<typename T>
+    concept arithmetic = std::is_arithmetic_v<T>;
+
+    enum class kind_of_dist : int {
+        uniform = 0,
+        pounded
+    };
+
 }
 
 // FORWARD DECLARATION
@@ -107,10 +125,7 @@ concept is_ternary = requires(T obj){
 };
 
 template<typename T, typename Own, typename Quantum>
-concept is_linked_operable = std::is_same_v<T, Own> || std::is_same_v<T, Quantum>;
-
-template<typename T>
-concept is_arithmetic = std::is_arithmetic_v<T>;
+concept linked_operable = std::is_same_v<T, Own> || std::is_same_v<T, Quantum>;
 
 // EXEPTIONS
 class [[nodiscard]] incoherent_size : public std::exception {
@@ -120,31 +135,32 @@ public:
     }
 };
 
-// DRK::QUANTUM NAMESPACE
-namespace quantum {
-class strict_uncertain_trait {
-public:
-    template<typename V, typename U>
-    static void Fix(const std::vector<V>& _values, const std::vector<U>& _pounded){
-        if(_values.size() != _pounded.size()) throw incoherent_size();
-    }
-};
+namespace quantum { // DRK::QUANTUM NAMESPACE
 
-class free_uncertain_trait {
-public:
-    template<typename V, typename U>
-    static void Fix(const std::vector<V>& _values, std::vector<U>& _pounded){
-        if(_values.size() != _pounded.size()){
-            _pounded.resize(_values.size());
+    class strict_uncertain_trait {
+    public:
+        template<typename V, typename U>
+        static void Fix(const std::vector<V>& _values, const std::vector<U>& _pounded, impl::kind_of_dist _random){
+            if(_random == impl::kind_of_dist::pounded) { if(_values.size() != _pounded.size()) throw incoherent_size(); }
         }
-    }
-};
+    };
 
-/// @brief Method used to get a random quantum_state.
-/// @return A random quantum_state (_::false_v, _::maybe_v, _::true_v).
-[[nodiscard]] inline quantum_state get_random_state(){
-    return static_cast<quantum_state>(impl::_get_random_uniform_int(2));
-}
+    class free_uncertain_trait {
+    public:
+        template<typename V, typename U>
+        static void Fix(const std::vector<V>& _values, std::vector<U>& _pounded, impl::kind_of_dist _random){
+            if(_random == impl::kind_of_dist::pounded || _random == impl::kind_of_dist::uniform){
+                if(_values.size() != _pounded.size()){ _pounded.resize(_values.size()); }
+            }
+        }
+    };
+
+    /// @brief Method used to get a random quantum_state.
+    /// @return A random quantum_state (_::false_v, _::maybe_v, _::true_v).
+    [[nodiscard]] inline quantum_state get_random_state(){
+        return static_cast<quantum_state>(impl::_get_random_uniform_int(2));
+    }
+
 } // END OF DRK::QUANTUM NAMESPACE
 
 /// @brief A datatype that can store two distinct variables: a logical quantum_state (_::true_v, _::maybe_v, _::false_v) and a T value.
@@ -157,9 +173,9 @@ public:
     using quantum_t  = ternary_quantum<value_type>;
 private:
     quantum_state m_state;
-public:
     value_type value;
-
+public:
+    
     ternary_quantum() noexcept : m_state{quantum_state::true_v}, value{value_type{}} {}
 
     ternary_quantum(const value_type& new_value) 
@@ -189,7 +205,9 @@ public:
 
     [[nodiscard]] constexpr quantum_state get_state() const noexcept { return m_state; }
 
-    [[nodiscard]] constexpr value_type get_value() const noexcept requires is_arithmetic<value_type> { return value; }
+    [[nodiscard]] value_type& get_value() noexcept { return value; }
+
+    [[nodiscard]] const value_type& get_value() const noexcept { return value; }
 
     [[nodiscard]] constexpr bool is_defined() const noexcept { return m_state != quantum_state::maybe_v; }
 
@@ -223,38 +241,38 @@ public:
         return (value != new_value.value) || (m_state != new_value.m_state);
     }
 
-    [[nodiscard]] constexpr value_type operator+(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator+(const quantum_t& new_value) const noexcept requires impl::arithmetic<value_type> {
         return value + new_value.value;
     }
 
-    quantum_t& operator+=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
+    quantum_t& operator+=(const quantum_t& new_value) noexcept requires impl::arithmetic<value_type> {
             value = value + new_value.value;
             return *this;
     }
 
-    [[nodiscard]] constexpr value_type operator-(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator-(const quantum_t& new_value) const noexcept requires impl::arithmetic<value_type> {
         return value - new_value.value;
     }
 
-    quantum_t& operator-=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
+    quantum_t& operator-=(const quantum_t& new_value) noexcept requires impl::arithmetic<value_type> {
         value = value - new_value.value;
         return *this;
     }
 
-    [[nodiscard]] constexpr value_type operator*(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator*(const quantum_t& new_value) const noexcept requires impl::arithmetic<value_type> {
         return value * new_value.value;
     }
 
-    quantum_t& operator*=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
+    quantum_t& operator*=(const quantum_t& new_value) noexcept requires impl::arithmetic<value_type> {
         value = value * new_value.value;
         return *this;
     }
 
-    [[nodiscard]] constexpr value_type operator/(const quantum_t& new_value) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator/(const quantum_t& new_value) const noexcept requires impl::arithmetic<value_type> {
         return value / new_value.value;
     }
 
-    quantum_t& operator/=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
+    quantum_t& operator/=(const quantum_t& new_value) noexcept requires impl::arithmetic<value_type> {
         value = value / new_value.value;
         return *this;
     }
@@ -504,38 +522,38 @@ public:
         return (owned_value != other_quantum.owned_value);
     }
     
-    [[nodiscard]] constexpr value_type operator+(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator+(const quantum_t& rhs_quantum) const noexcept requires impl::arithmetic<value_type> {
         return owned_value + rhs_quantum.owned_value;
     }
 
-    quantum_t& operator+=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
+    quantum_t& operator+=(const quantum_t& new_value) noexcept requires impl::arithmetic<value_type> {
         owned_value = owned_value + new_value.owned_value;
         return *this;
     }
 
-    [[nodiscard]] constexpr value_type operator-(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator-(const quantum_t& rhs_quantum) const noexcept requires impl::arithmetic<value_type> {
         return owned_value - rhs_quantum.owned_value;
     }
 
-    quantum_t& operator-=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
+    quantum_t& operator-=(const quantum_t& new_value) noexcept requires impl::arithmetic<value_type> {
         owned_value = owned_value - new_value.owned_value;
         return *this;
     }
 
-    [[nodiscard]] constexpr value_type operator*(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator*(const quantum_t& rhs_quantum) const noexcept requires impl::arithmetic<value_type> {
         return owned_value * rhs_quantum.owned_value;
     }
 
-    quantum_t& operator*=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
+    quantum_t& operator*=(const quantum_t& new_value) noexcept requires impl::arithmetic<value_type> {
         owned_value = owned_value * new_value.owned_value;
         return *this;
     }
 
-    [[nodiscard]] constexpr value_type operator/(const quantum_t& rhs_quantum) const noexcept requires is_arithmetic<value_type> {
+    [[nodiscard]] constexpr value_type operator/(const quantum_t& rhs_quantum) const noexcept requires impl::arithmetic<value_type> {
         return owned_value / rhs_quantum.owned_value;
     }
 
-    quantum_t& operator/=(const quantum_t& new_value) noexcept requires is_arithmetic<value_type> {
+    quantum_t& operator/=(const quantum_t& new_value) noexcept requires impl::arithmetic<value_type> {
         owned_value = owned_value / new_value.owned_value;
         return *this;
     }
@@ -551,24 +569,27 @@ public:
     using const_iterator = typename std::vector<value_type>::const_iterator;
     using quantum_t      = uncertain_quantum<value_type, Strictness>;
 private:
-    enum class kind_of_dist : int {
-        uniform = 0,
-        pounded
-    };
-
     std::vector<value_type> m_storage;
     std::vector<unsigned int> m_poundered_probability;
-    kind_of_dist choosen_rand;
+    impl::kind_of_dist choosen_rand;
 public:
 
-    uncertain_quantum() = default;
+    uncertain_quantum() : m_storage{}, m_poundered_probability{}, choosen_rand{impl::kind_of_dist::uniform} {};
 
-    template<typename V, typename U> 
-    requires std::same_as<std::decay_t<V>, std::vector<value_type>>
-          && std::same_as<std::decay_t<U>, std::vector<unsigned int>>
-    uncertain_quantum(V&& _storage = {}, U&& _poundered = {})
-    : m_storage(std::forward<V>(_storage)), m_poundered_probability(std::forward<U>(_poundered)), choosen_rand(kind_of_dist::pounded) {
-        Strictness::Fix(m_storage, m_poundered_probability);
+    uncertain_quantum(const std::vector<value_type>& _storage)
+    : m_storage{_storage}, m_poundered_probability{}, choosen_rand{impl::kind_of_dist::uniform} {}
+
+    uncertain_quantum(std::vector<value_type>&& _storage)
+    : m_storage{std::move(_storage)}, m_poundered_probability{}, choosen_rand{impl::kind_of_dist::uniform} {}
+
+    uncertain_quantum(const std::vector<value_type>& _storage, const std::vector<unsigned int>& _poundered)
+    : m_storage{_storage}, m_poundered_probability{_poundered}, choosen_rand{impl::kind_of_dist::pounded} {
+        Strictness::Fix(m_storage, m_poundered_probability, choosen_rand);
+    }
+
+    uncertain_quantum(std::vector<value_type>&& _storage, std::vector<unsigned int>&& _poundered)
+    : m_storage{std::move(_storage)}, m_poundered_probability{std::move(_poundered)}, choosen_rand{impl::kind_of_dist::pounded} {
+        Strictness::Fix(m_storage, m_poundered_probability, choosen_rand);
     }
 
     uncertain_quantum(const quantum_t& other){
@@ -577,46 +598,58 @@ public:
         choosen_rand = other.choosen_rand;
     }
 
-    uncertain_quantum(quantum_t&& other) :
+    uncertain_quantum(quantum_t&& other) noexcept :
         m_storage{std::move(other.m_storage)},
         m_poundered_probability{std::move(other.m_poundered_probability)},
         choosen_rand{std::move(other.choosen_rand)}
     {
         other.m_storage = std::vector<value_type>(1, value_type{});
         other.m_poundered_probability = std::vector<unsigned int>(1, 0);
-        other.choosen_rand = kind_of_dist::uniform;
+        other.choosen_rand = impl::kind_of_dist::uniform;
     }
 
     ~uncertain_quantum() = default;
 
     // MAIN METHODS 
-    template<typename V, typename U> 
-    requires std::same_as<std::decay_t<V>, std::vector<value_type>> 
-          && std::same_as<std::decay_t<U>, std::vector<unsigned int>>
-    void change_values(V&& new_values, U&& new_poundered = {})
+    void change_values(const std::vector<value_type>& new_values, const std::vector<unsigned int>& new_poundered = {})
     { 
-        m_storage = std::forward<V>(new_values);
-        if(!new_poundered.empty()) m_poundered_probability = std::forward<U>(new_poundered);
-        Strictness::Fix(m_storage, m_poundered_probability);
+        m_storage = new_values;
+        if(!new_poundered.empty()) m_poundered_probability = new_poundered;
+        Strictness::Fix(m_storage, m_poundered_probability, choosen_rand);
     }
 
-    void make_uniform() noexcept { choosen_rand = kind_of_dist::uniform; }
+    void change_values(std::vector<value_type>&& new_values, std::vector<unsigned int>&& new_poundered = {})
+    { 
+        m_storage = std::move(new_values);
+        if(!new_poundered.empty()) m_poundered_probability = std::move(new_poundered);
+        Strictness::Fix(m_storage, m_poundered_probability, choosen_rand);
+    }
 
-    void make_pounded() noexcept { choosen_rand = kind_of_dist::pounded; }
+    void make_uniform() noexcept { choosen_rand = impl::kind_of_dist::uniform; }
 
-    template<typename V> requires std::same_as<std::decay_t<V>, std::vector<unsigned int>>
-    void make_pounded(V&& new_poundered) {
-        choosen_rand = kind_of_dist::pounded;
-        m_poundered_probability = std::forward<V>(new_poundered);
-        Strictness::Fix(m_storage, m_poundered_probability);
+    void make_pounded() noexcept { 
+        choosen_rand = impl::kind_of_dist::pounded;
+        Strictness::Fix(m_storage, m_poundered_probability, choosen_rand);
+    }
+
+    void make_pounded(const std::vector<unsigned int>& new_poundered) {
+        choosen_rand = impl::kind_of_dist::pounded;
+        m_poundered_probability = new_poundered;
+        Strictness::Fix(m_storage, m_poundered_probability, choosen_rand);
+    }
+
+    void make_pounded(std::vector<unsigned int>&& new_poundered) {
+        choosen_rand = impl::kind_of_dist::pounded;
+        m_poundered_probability = std::move(new_poundered);
+        Strictness::Fix(m_storage, m_poundered_probability, choosen_rand);
     }
 
     [[nodiscard]] value_type observe() {
         if(m_storage.empty()) return value_type{};
-        if(choosen_rand == kind_of_dist::uniform) {
+        if(choosen_rand == impl::kind_of_dist::uniform) {
             return m_storage[impl::_get_random_uniform_int(m_storage.size()-1)];
         }
-        int count{0};
+        size_t count{0};
         for(const auto& possibility : m_poundered_probability){
             if(possibility == 0) count++;
             else break;

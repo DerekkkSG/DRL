@@ -12,6 +12,7 @@
 
 using namespace std;
 
+#define DEBUG_DRL
 #ifndef DEBUG_DRL
 
 // Function dependencies for iostream compatibility

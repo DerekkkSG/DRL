@@ -3,6 +3,7 @@
 
 #include <iostream>
 
+#define DEBUG_DRL
 #ifndef DEBUG_DRL
 
 int main() {
