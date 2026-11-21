@@ -12,15 +12,13 @@
 
 using namespace std;
 
-#define DEBUG_DRL
 #ifndef DEBUG_DRL
 
 // Function dependencies for iostream compatibility
-std::ostream& operator<<(std::ostream& ostream, const drk::quantum_state& state);
-
 template<typename Own, typename Linked>
 std::ostream& operator<<(std::ostream& ostream, drk::linked_quantum<Own, Linked> quantum);
 
+// Test object
 struct Vector2 {
     double x;
     double y;
@@ -190,16 +188,6 @@ int main(){
 }
 
 // Function declaration
-std::ostream& operator<<(std::ostream& ostream, drk::quantum_state state){
-    switch(state){
-        case drk::quantum_state::false_v: ostream << static_cast<int>(drk::quantum_state::false_v); break;
-        case drk::quantum_state::maybe_v: ostream << static_cast<int>(drk::quantum_state::maybe_v); break;
-        case drk::quantum_state::true_v: ostream << static_cast<int>(drk::quantum_state::true_v); break;
-        default: ostream << static_cast<int>(drk::quantum_state::false_v);
-    }
-    return ostream;
-}
-
 template<typename Own, typename Linked>
 std::ostream& operator<<(std::ostream& ostream, drk::linked_quantum<Own, Linked> quantum){
     ostream << "{" << quantum.owned() << ", " << quantum.shared() << "}";
