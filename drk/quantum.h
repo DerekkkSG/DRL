@@ -11,16 +11,9 @@ If you get to use the library, please don't trust your life on it; it's not the 
 ------------------------------------------------------------------------------------------------------------------------
 */
 
-#ifndef DRL_QUANTUM_H
-#define DRL_QUANTUM_H
-
-#include <type_traits>
-#include <random>
-#include <utility>
-#include <vector>
-#include <concepts>
-#include <compare>
-#include <exception>
+#pragma once
+#ifndef DEREKS_RESTRICTED_LIB_QUANTUM_H
+#define DEREKS_RESTRICTED_LIB_QUANTUM_H
 
 #if defined(_MSVC_LANG)
     #if _MSVC_LANG < 202002L
@@ -31,6 +24,14 @@ If you get to use the library, please don't trust your life on it; it's not the 
         #error "quantum.h is not compatible with your current version of C++. You need to compile with -std=c++20 at minimum."
     #endif
 #endif
+
+#include <type_traits>
+#include <random>
+#include <utility>
+#include <vector>
+#include <concepts>
+#include <compare>
+#include <exception>
 
 namespace drk { //Start of the library
 
@@ -307,17 +308,17 @@ private:
 
 public:
 
-    linked_quantum() : shared_obj{nullptr} {}
+    linked_quantum() : shared_value{}, owned_value{}, shared_obj{nullptr}, shared_ref{} {}
 
     explicit linked_quantum(const value_type& own_v) 
-    : owned_value{own_v}, shared_obj{nullptr} {}
+    : shared_value{}, owned_value{own_v}, shared_obj{nullptr}, shared_ref{} {}
 
     linked_quantum(const value_type& own_v, const linked_type& linked_v) 
-    : shared_value{linked_v}, owned_value{own_v}, shared_obj{nullptr} {}
+    : shared_value{linked_v}, owned_value{own_v}, shared_obj{nullptr}, shared_ref{} {}
 
     linked_quantum(quantum_t& other_quantum)
     : shared_value{other_quantum.shared_value}, owned_value{other_quantum.owned_value},
-      shared_obj{other_quantum.shared_obj} 
+      shared_obj{other_quantum.shared_obj}, shared_ref{}
     {
         if(shared_obj != nullptr) shared_obj->shared_ref.push_back(this);
     }
@@ -627,7 +628,7 @@ public:
 
     void make_uniform() noexcept { choosen_rand = impl::kind_of_dist::uniform; }
 
-    void make_pounded() noexcept { 
+    void make_pounded() { 
         choosen_rand = impl::kind_of_dist::pounded;
         Strictness::Fix(m_storage, m_poundered_probability, choosen_rand);
     }
@@ -705,12 +706,12 @@ template<typename T>
 
 template<typename T>
 [[nodiscard]] strict_uncertain<T> make_strict_uncertain(
-    const std::vector<T>& _storage = std::vector<T>(1, T{}),
-    const std::vector<unsigned int>& _poundered = std::vector<unsigned int>(1, 0))
+    const std::vector<T>& _storage,
+    const std::vector<unsigned int>& _poundered)
 {
     return strict_uncertain<T>(_storage, _poundered);
 }
 
 } //End of the library
 
-#endif
+#endif // End of DEREKS_RESTRICTED_LIB_QUANTUM_H
