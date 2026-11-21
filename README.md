@@ -10,18 +10,29 @@ Esta biblioteca busca experimentar con formas creativas de implementar y diseña
 
 ## Contenido
 
-DRL incluye por el momento una sola librería, aunque con la visión de agregar muchas más en un futuro:
+DRL incluye por el momento solo dos librerías, aunque con la visión de agregar muchas más en un futuro:
 
 * **quantum.h:** Es una librería inspirada por los conceptos fundamentales de la mecánica cuántica, intentando implementar de la manera más clara y sencilla posible conceptos como la incertidumbre o superposición cuántica sin intentar resolver problemas realmente relacionados con estos temas.
 
-#### Características de quantum.h
+* **aliases.h:** Es una librería que te da acceso a maneras más cortas de escribir las mismas estructuras presentes en la DRL sin necesidad de definirlas por ti mismo. Aplica para toda nueva librería agregada en el futuro.
+
+#### Características de `quantum.h`
 
 * `drk::ternary_quantum<T>`: Almacena un valor cualquiera junto a un estado lógico ternario: false_v, maybe_v y true_v. Su estado logico por defecto es true_v.
 * `drk::linked_quantum<Own, Linked>`: Almacena dos valores distintos: uno propio y otro compartido entre distintos objetos del mismo tipo que tu decidas vincular.
 * `drk::uncertain_quantum<T>`: Almacena varios valores, los cuales se pueden seleccionar aleatoriamente mediante una distribución uniforme o probabilidades ponderadas.
-    - `drk::strict_uncertain<T>`: Es una especialización de **drk::uncertain_quantum** que no te permite tener un vector de valores de distinto tamaño al de probabilidades ponderadas, soltando una excepción de tipo *drk::incoherent_size* si se incumple esta norma.
+    - `drk::strict_uncertain<T>`: Es una especialización de **drk::uncertain_quantum** que no te permite tener un vector de valores de distinto tamaño al de probabilidades ponderadas, soltando una excepción de tipo **drk::incoherent_size** si se incumple esta norma.
 
 Además, **quantum.h** cuenta con funciones especializadas para crear cada estructura, así como los tres estados lógicos distintos, entre otros. Algunas de las utilidades se encuentran dentro del espacio de nombres **drk::quantum**.
+
+#### Características de `aliases.h`
+
+Como se describia, esta libreria te permite reducir la escritura necesaria para cada libreria presente en la DRL. Poniendo como ejemplo a `quantum.h`, tenemos los siguientes recortes:
+
+* `drk::ternary<T>`: Forma corta de escribir `drk::ternary_quantum<T>`.
+* `drk::linked<Own, Linked>`: Forma corta de escribir `drk::linked_quantum<Own, Linked>`.
+* `drk::uncertain<T>`: Forma corta de escribir `drk::uncertain_quantum<T>`.
+* Los `drk::quantum_state` ahora se pueden omitir, pudiendo escribir directamente `drk::false_v`, `drk::mabye_v` o `drk::true_v`.
 
 ## Requisitos
 
@@ -94,7 +105,7 @@ Para ejecutar el programa resultante en Windows, se utiliza el siguiente comando
 
 Para el futuro desarrollo de la DRL, aún se está pensando en qué podría desarrollarse. Por el momento, se tiene pensado agregar las siguientes librerias:
 
-* **hive.h:** Ésta es una libreria inspirada por las abejas y su forma tan ordenada de trabajar. Su objetivo es intentar replicar esa misma forma de trabajo pero sobre estructuras de datos y algoritmos, tomando como inspiración la sintaxis de **std::views** y su operador pipeline |.
+* **hive.h:** Ésta es una libreria inspirada por las abejas y su forma tan ordenada de trabajar. Su objetivo es intentar replicar esa misma forma de trabajo pero sobre estructuras de datos y algoritmos, tomando como inspiración la sintaxis de **std::views** y su operador pipeline `|`.
 
 ## Licencia
 
